@@ -99,12 +99,6 @@ struct vdiHeader
     //Ignore UUID's   
 };
 
-/*struct vdiMasterBootRecord
-{
-    int codeArea[446];
-    int partitionTable[64];
-    int MBRSignature[2];
-};*/
 
 class vdiFile
 {
@@ -129,21 +123,15 @@ class vdiFile
 
 int main()
 {
-    //fstream fs;
-    //fs.open ("Test-fixed-1k.vdi", fstream::in);
-    
-    //cout << "FILE CONTENTS:  " << fs.read(); 
-    //fs.close();
+
     unsigned int data[512];
 
     vdiFile testFile;    
-    //vdiHeader header;
+
     testFile.vdi_open("/home/csis/Downloads/Good/Test-fixed-1k.vdi");
-    //lseek(fd, )
+
     testFile.vdi_read(&testFile.MBR, 512);
-    //testFile.vdi_lseek(0, SEEK_SET);
-    //testFile.vdi_read(&header, 164);
-    //testFile.vdi_close();
+
     cout << "Name: " << testFile.header.name << endl;
     cout << "Magic Number: " << hex << testFile.header.magicNumber << dec << endl;
     cout << "header Size: " << testFile.header.headerSize << endl;
@@ -184,13 +172,13 @@ int vdiFile::vdi_open(const char *pathname)
     //lseek(fd, 1, SEEK_SET);
     read(fd, &header, sizeof(header));  
     map = new int[header.blocksInHDD];
-    lseek(fd, 0, SEEK_SET);
+    //lseek(fd, 0, SEEK_SET);
     lseek(fd, header.offsetBlocks, SEEK_SET);
     read(fd, map, 4*header.blocksInHDD);
     cout << "MapZero: " << "0" << " = " << map[0] << endl;
     for (int i=0; i < header.blocksInHDD; i ++)
         {
-         cout << "Map: " << i << " = " << map[i] << endl;
+         //cout << "Map: " << i << " = " << map[i] << endl;
         }
     //cout << "Name2: " << header.name << endl;
     //translate();
@@ -211,8 +199,8 @@ ssize_t vdiFile::vdi_read(/*const char *fn,*/ /*int fd,*/ void *buf, size_t coun
     //info = read(fd)
     //fd = open(*fn /*, O_RDONLY*/);
     //lseek the starting point
-    //translate();
-    lseek(fd, header.offsetData, SEEK_SET);
+    translate();
+    //lseek(fd, header.offsetData, SEEK_SET);
     read(fd, buf, count);
 }        
 
@@ -231,8 +219,13 @@ off_t vdiFile::vdi_lseek(off_t offset, int whence)
     else if (whence == SEEK_CUR)
     {
         cursor += offset; 
+    }
+    else if (whence == SEEK_END)
+    {
+        cursor = header.diskSize + offset;
     } 
-    //lseek(fd, offset, whence);
+    translate();
+    //lseek(fd, cursor, whence);
 }
 
 void vdiFile::setHeader()
