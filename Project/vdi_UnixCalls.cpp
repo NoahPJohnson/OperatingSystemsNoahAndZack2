@@ -61,6 +61,7 @@ translate()
 #include "vdiUnixCalls.h"
 #include "boot.h"
 #include "datatypes.h"
+#include "ext2.h"
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -111,6 +112,7 @@ class vdiFile
     public:
         vdiHeader header;
         MasterBootRecord MBR;
+        ext2_super_block superBlock;
         int vdi_open(const char*);
         void vdi_close();
         ssize_t vdi_read(/*int,*/ void*, size_t);
@@ -124,13 +126,21 @@ class vdiFile
 int main()
 {
 
-    unsigned int data[512];
+    
 
     vdiFile testFile;    
 
     testFile.vdi_open("/home/csis/Downloads/Good/Test-fixed-1k.vdi");
 
+    char data[testFile.header.blockSize];    
+
     testFile.vdi_read(&testFile.MBR, 512);
+
+    
+
+    testFile.vdi_lseek((testFile.MBR.partitionTable[0].firstSector*512)+1024, SEEK_SET);
+
+    testFile.vdi_read(&testFile.superBlock, 1024);
 
     cout << "Name: " << testFile.header.name << endl;
     cout << "Magic Number: " << hex << testFile.header.magicNumber << dec << endl;
@@ -144,6 +154,9 @@ int main()
     cout << "Block Size: " << testFile.header.blockSize << endl;
     cout << "Blocks in HDD: " << testFile.header.blocksInHDD << endl;
     
+    cout << "Inodes: " << testFile.superBlock.s_inodes_count << endl;
+    cout << "SuperBlock: " << hex << testFile.superBlock.s_magic << dec << endl;
+
     for (int i = 0; i < sizeof(testFile.MBR.unused0); i ++)
     {
         //cout << "Code from Read: " << testFile.MBR.unused0[i] << endl;
@@ -151,12 +164,28 @@ int main()
     
 
     for (int i = 0; i < 4; i ++)
-    {
-        //cout << "Partition Table: " << testFile.MBR.partitionTable[i].type << endl;
+    {  
+        cout << "Partition Table Type: " << testFile.MBR.partitionTable[i].type << endl; 
+        cout << "Partition Table: " << testFile.MBR.partitionTable[i].firstSector << endl;
     }
     
     cout << "Signature: " << hex << testFile.MBR.magic << dec << endl;
     
+    cout << endl;
+    cout << "File System Size: " << testFile.header.diskSize << endl;
+    
+    cout << endl;
+    cout << "Space Available:  " << 
+    testFile.superBlock.s_free_blocks_count * testFile.header.blockSize << endl;
+    
+    cout << endl;
+    cout << "Used Space:       " << 
+    (testFile.superBlock.s_blocks_count - 
+    testFile.superBlock.s_free_blocks_count) * 
+    testFile.superBlock.s_log_block_size << endl;
+    
+    cout << endl;
+    cout << "Number of Inodes: " << testFile.superBlock.s_inodes_count << endl;
     return 0;
 }
 
@@ -182,6 +211,8 @@ int vdiFile::vdi_open(const char *pathname)
         }
     //cout << "Name2: " << header.name << endl;
     //translate();
+    //lseek(fd, 2098176, SEEK_SET);
+    //read(fd, &superBlock, sizeof(superBlock));
     cursor = 0;
     return 0;
 }
@@ -200,7 +231,7 @@ ssize_t vdiFile::vdi_read(/*const char *fn,*/ /*int fd,*/ void *buf, size_t coun
     //fd = open(*fn /*, O_RDONLY*/);
     //lseek the starting point
     translate();
-    //lseek(fd, header.offsetData, SEEK_SET);
+    //lseek(fd, header.offsetData+1024, SEEK_SET);
     read(fd, buf, count);
 }        
 
@@ -223,9 +254,11 @@ off_t vdiFile::vdi_lseek(off_t offset, int whence)
     else if (whence == SEEK_END)
     {
         cursor = header.diskSize + offset;
-    } 
-    translate();
-    //lseek(fd, cursor, whence);
+    }
+    //translate();
+    //cursor = offset + header.offsetData;
+    //lseek(fd, cursor, SEEK_SET);
+    //read(fd, &superBlock, sizeof(superBlock));
 }
 
 void vdiFile::setHeader()
@@ -241,6 +274,7 @@ void vdiFile::translate()
     //int frame;
     int location; 
 
+    cout << "Cursor: " << cursor << endl; 
     cout << "Block Size: " << header.blockSize << endl;
     pageNumber = cursor / header.blockSize;
     cout << "page number: " << pageNumber << endl;
