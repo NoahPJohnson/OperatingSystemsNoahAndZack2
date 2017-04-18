@@ -171,15 +171,15 @@ struct ext2_sb_info {
 /*
  * Macro-instructions used to manage several block sizes
  */
-//#define EXT2_MIN_BLOCK_SIZE		1024
-//#define	EXT2_MAX_BLOCK_SIZE		4096
-/*#define EXT2_MIN_BLOCK_LOG_SIZE		  10
+#define EXT2_MIN_BLOCK_SIZE		1024
+#define	EXT2_MAX_BLOCK_SIZE		4096
+#define EXT2_MIN_BLOCK_LOG_SIZE		  10
 #define EXT2_BLOCK_SIZE(s)		((s)->s_blocksize)
 #define	EXT2_ADDR_PER_BLOCK(s)		(EXT2_BLOCK_SIZE(s) / sizeof (__u32))
 #define EXT2_BLOCK_SIZE_BITS(s)		((s)->s_blocksize_bits)
 #define	EXT2_ADDR_PER_BLOCK_BITS(s)	(EXT2_SB(s)->s_addr_per_block_bits)
 #define EXT2_INODE_SIZE(s)		(EXT2_SB(s)->s_inode_size)
-#define EXT2_FIRST_INO(s)		(EXT2_SB(s)->s_first_ino)*/
+#define EXT2_FIRST_INO(s)		(EXT2_SB(s)->s_first_ino)
 
 /*
  * Macro-instructions used to manage fragments
@@ -193,17 +193,17 @@ struct ext2_sb_info {
 /*
  * Structure of a blocks group descriptor
  */
-//struct ext2_group_desc
-//{
-//	__le32	bg_block_bitmap;		/* Blocks bitmap block */
-//	__le32	bg_inode_bitmap;		/* Inodes bitmap block */
-//	__le32	bg_inode_table;		/* Inodes table block */
-//	__le16	bg_free_blocks_count;	/* Free blocks count */
-//	__le16	bg_free_inodes_count;	/* Free inodes count */
-//	__le16	bg_used_dirs_count;	/* Directories count */
-//	__le16	bg_pad;
-//	__le32	bg_reserved[3];
-//};
+struct ext2_group_desc
+{
+	__le32	bg_block_bitmap;		/* Blocks bitmap block */
+	__le32	bg_inode_bitmap;		/* Inodes bitmap block */
+	__le32	bg_inode_table;		/* Inodes table block */
+	__le16	bg_free_blocks_count;	/* Free blocks count */
+	__le16	bg_free_inodes_count;	/* Free inodes count */
+	__le16	bg_used_dirs_count;	/* Directories count */
+	__le16	bg_pad;
+	__le32	bg_reserved[3];
+};
 
 /*
  * Macro-instructions used to manage group descriptors
@@ -537,7 +537,7 @@ struct ext2_super_block {
 #define EXT2_FEATURE_COMPAT_DIR_INDEX		0x0020
 #define EXT2_FEATURE_COMPAT_ANY			0xffffffff
 
-//#define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
+#define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
 #define EXT2_FEATURE_RO_COMPAT_LARGE_FILE	0x0002
 #define EXT2_FEATURE_RO_COMPAT_BTREE_DIR	0x0004
 #define EXT2_FEATURE_RO_COMPAT_ANY		0xffffffff
@@ -582,12 +582,12 @@ struct ext2_super_block {
  * Structure of a directory entry
  */
 
-//struct ext2_dir_entry {
-//	__le32	inode;			/* Inode number */
-//	__le16	rec_len;		/* Directory entry length */
-//	__le16	name_len;		/* Name length */
-//	char	name[];			/* File name, up to EXT2_NAME_LEN */
-//};
+struct ext2_dir_entry {
+	__le32	inode;			/* Inode number */
+	__le16	rec_len;		/* Directory entry length */
+	__le16	name_len;		/* Name length */
+	char	name[];			/* File name, up to EXT2_NAME_LEN */
+};
 
 /*
  * The new version of the directory entry.  Since EXT2 structures are
@@ -595,19 +595,19 @@ struct ext2_super_block {
  * bigger than 255 chars, it's safe to reclaim the extra byte for the
  * file_type field.
  */
-//struct ext2_dir_entry_2 {
-//	__le32	inode;			/* Inode number */
-//	__le16	rec_len;		/* Directory entry length */
-//	__u8	name_len;		/* Name length */
-//	__u8	file_type;
-//	char	name[];			/* File name, up to EXT2_NAME_LEN */
-//};
+struct ext2_dir_entry_2 {
+	__le32	inode;			/* Inode number */
+	__le16	rec_len;		/* Directory entry length */
+	__u8	name_len;		/* Name length */
+	__u8	file_type;
+	char	name[];			/* File name, up to EXT2_NAME_LEN */
+};
 
 /*
  * Ext2 directory file types.  Only the low 3 bits are used.  The
  * other bits are reserved for now.
  */
-/*enum {
+enum {
 	//EXT2_FT_UNKNOWN		= 0,
 	EXT2_FT_REG_FILE	= 1,
 	EXT2_FT_DIR		= 2,
@@ -617,7 +617,7 @@ struct ext2_super_block {
 	EXT2_FT_SOCK		= 6,
 	EXT2_FT_SYMLINK		= 7,
 	EXT2_FT_MAX
-};*/
+};
 
 /*
  * EXT2_DIR_PAD defines the directory entries boundaries
@@ -722,7 +722,7 @@ struct ext2_inode_info {
 }*/
 
 /* balloc.c */
-//extern int ext2_bg_has_super(struct super_block *sb, int group);
+extern int ext2_bg_has_super(struct super_block *sb, int group);
 extern unsigned long ext2_bg_num_gdb(struct super_block *sb, int group);
 extern ext2_fsblk_t ext2_new_block(struct inode *, unsigned long, int *);
 extern ext2_fsblk_t ext2_new_blocks(struct inode *, unsigned long,

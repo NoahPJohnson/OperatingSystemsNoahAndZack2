@@ -123,12 +123,27 @@ class vdiFile
         
 };
 
+class blockClass
+{
+    int blockSize;
+    int freeSpace;
+    int usedSpace;    
+
+    public:
+        void fetchSuperblock(vdiFile*);
+        void fetchInode(vdiFile*);
+        void calculateSpace(ext2_super_block*);   
+        int getFreeSpace();
+        int getUsedSpace();
+};
+
 int main()
 {
 
     
 
     vdiFile testFile;    
+    blockClass blockLayer;    
 
     testFile.vdi_open("/home/csis/Downloads/Good/Test-fixed-1k.vdi");
 
@@ -136,11 +151,11 @@ int main()
 
     testFile.vdi_read(&testFile.MBR, 512);
 
-    
+    blockLayer.fetchSuperblock(&testFile);
 
-    testFile.vdi_lseek((testFile.MBR.partitionTable[0].firstSector*512)+1024, SEEK_SET);
+    //testFile.vdi_lseek((testFile.MBR.partitionTable[0].firstSector*512)+1024, SEEK_SET);
 
-    testFile.vdi_read(&testFile.superBlock, 1024);
+    //testFile.vdi_read(&testFile.superBlock, 1024);
 
     cout << "Name: " << testFile.header.name << endl;
     cout << "Magic Number: " << hex << testFile.header.magicNumber << dec << endl;
@@ -156,6 +171,7 @@ int main()
     
     cout << "Inodes: " << testFile.superBlock.s_inodes_count << endl;
     cout << "SuperBlock: " << hex << testFile.superBlock.s_magic << dec << endl;
+    cout << "First Inode: " << testFile.superBlock.s_first_ino << endl;
 
     for (int i = 0; i < sizeof(testFile.MBR.unused0); i ++)
     {
@@ -175,17 +191,19 @@ int main()
     cout << "File System Size: " << testFile.header.diskSize << endl;
     
     cout << endl;
-    cout << "Space Available:  " << 
-    testFile.superBlock.s_free_blocks_count * testFile.header.blockSize << endl;
+    cout << "Space Available:  " << blockLayer.getFreeSpace() << endl;
     
     cout << endl;
-    cout << "Used Space:       " << 
-    (testFile.superBlock.s_blocks_count - 
-    testFile.superBlock.s_free_blocks_count) * 
-    testFile.superBlock.s_log_block_size << endl;
+    cout << "Used Space:       " << blockLayer.getUsedSpace() << endl;
     
     cout << endl;
     cout << "Number of Inodes: " << testFile.superBlock.s_inodes_count << endl;
+
+    cout << endl;
+    cout << "FileSystem State: " << testFile.superBlock.s_state << endl;
+
+    //cout << endl;
+    //cout << "First inode: " << testFile.superBlock.s_first_ino << endl;
     return 0;
 }
 
@@ -231,7 +249,6 @@ ssize_t vdiFile::vdi_read(/*const char *fn,*/ /*int fd,*/ void *buf, size_t coun
     //fd = open(*fn /*, O_RDONLY*/);
     //lseek the starting point
     translate();
-    //lseek(fd, header.offsetData+1024, SEEK_SET);
     read(fd, buf, count);
 }        
 
@@ -283,4 +300,39 @@ void vdiFile::translate()
     location = header.offsetData + (map[pageNumber] * header.blockSize) + offset;
     cout << "location: " << location << endl;
     lseek(fd, location, SEEK_SET);   
+}
+
+void blockClass::fetchSuperblock(vdiFile* file)
+{
+    int partitionTableIndex;
+    for (int i = 0; i < 4; i++)
+    {
+        if (file->MBR.partitionTable[i].type == 0x83)
+        {
+            partitionTableIndex = i;     
+        }
+    }
+    file->vdi_lseek((file->MBR.partitionTable[partitionTableIndex].firstSector*512)+1024, SEEK_SET);
+    //cout << (file->MBR.partitionTable[0].firstSector*512)+1024 << endl;
+    file->vdi_read(&file->superBlock, 1024);
+    blockSize = 1024 << file->superBlock.s_log_block_size;
+    calculateSpace(&file->superBlock);
+    //cout << hex << file->superBlock.s_magic << dec << endl;
+}
+
+void blockClass::calculateSpace(ext2_super_block* sBlock)
+{
+    int space = (sBlock->s_blocks_count * blockSize);
+    freeSpace = ((sBlock->s_free_blocks_count + sBlock->s_r_blocks_count) * blockSize);
+    usedSpace = (space - freeSpace);
+}
+
+int blockClass::getFreeSpace()
+{
+    return freeSpace;
+}
+
+int blockClass::getUsedSpace()
+{
+    return usedSpace;
 }

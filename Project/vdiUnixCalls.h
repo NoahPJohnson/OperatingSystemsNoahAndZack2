@@ -19,5 +19,7 @@ void setHeader();
 
 void translate();
 
+//void fetchSuperBlock(vdiFile fileToFetchFrom);
+
 
 #endif
