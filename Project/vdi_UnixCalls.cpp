@@ -113,6 +113,7 @@ class vdiFile
         vdiHeader header;
         MasterBootRecord MBR;
         ext2_super_block superBlock;
+        ext2_group_desc* blockGroupDescriptorTable;
         int vdi_open(const char*);
         void vdi_close();
         ssize_t vdi_read(/*int,*/ void*, size_t);
@@ -128,13 +129,26 @@ class blockClass
     int blockSize;
     int freeSpace;
     int usedSpace;    
+    int partitionStart;
+    int blockGroups;
+    int maxBlocks;
+    int groupDescriptorPerBlock;
+    int groupDTBlocksUsed;
+    int groupDTBlocks;
+    int inodesPerBlock;
+    int addressesPerBlock;
 
     public:
         void fetchSuperblock(vdiFile*);
-        void fetchInode(vdiFile*);
+        void fetchBlock(int, vdiFile*, u8*);
+        void fetchInode(int, vdiFile*);
+        void fetchBlockGroupDescriptorTable(vdiFile*);
+        void calculateMaxBlocks(ext2_super_block*);
+        void calculateGDTBlocks(vdiFile* file);
         void calculateSpace(ext2_super_block*);   
         int getFreeSpace();
         int getUsedSpace();
+        void displayFileInformation(vdiFile*);
 };
 
 int main()
@@ -185,22 +199,7 @@ int main()
         cout << "Partition Table: " << testFile.MBR.partitionTable[i].firstSector << endl;
     }
     
-    cout << "Signature: " << hex << testFile.MBR.magic << dec << endl;
-    
-    cout << endl;
-    cout << "File System Size: " << testFile.header.diskSize << endl;
-    
-    cout << endl;
-    cout << "Space Available:  " << blockLayer.getFreeSpace() << endl;
-    
-    cout << endl;
-    cout << "Used Space:       " << blockLayer.getUsedSpace() << endl;
-    
-    cout << endl;
-    cout << "Number of Inodes: " << testFile.superBlock.s_inodes_count << endl;
-
-    cout << endl;
-    cout << "FileSystem State: " << testFile.superBlock.s_state << endl;
+    blockLayer.displayFileInformation(&testFile);
 
     //cout << endl;
     //cout << "First inode: " << testFile.superBlock.s_first_ino << endl;
@@ -312,12 +311,85 @@ void blockClass::fetchSuperblock(vdiFile* file)
             partitionTableIndex = i;     
         }
     }
-    file->vdi_lseek((file->MBR.partitionTable[partitionTableIndex].firstSector*512)+1024, SEEK_SET);
+    partitionStart = (file->MBR.partitionTable[partitionTableIndex].firstSector*512);
+    file->vdi_lseek(partitionStart+1024, SEEK_SET);
     //cout << (file->MBR.partitionTable[0].firstSector*512)+1024 << endl;
     file->vdi_read(&file->superBlock, 1024);
+    //file->vdi_read(&file->
     blockSize = 1024 << file->superBlock.s_log_block_size;
+    blockGroups = (file->superBlock.s_blocks_count + file->superBlock.s_blocks_per_group - 1) / file->superBlock.s_blocks_per_group;
+    fetchBlockGroupDescriptorTable(file);
+    calculateMaxBlocks(&file->superBlock);
+    addressesPerBlock = blockSize / sizeof(u32);
+    calculateGDTBlocks(file);
+    inodesPerBlock = blockSize / file->superBlock.s_inode_size;
+    
     calculateSpace(&file->superBlock);
+    
     //cout << hex << file->superBlock.s_magic << dec << endl;
+}
+
+void blockClass::fetchBlockGroupDescriptorTable(vdiFile* file)
+{
+    file->vdi_lseek((1+file->superBlock.s_first_data_block)*blockSize+partitionStart, SEEK_SET);
+    
+    file->blockGroupDescriptorTable = new ext2_group_desc[blockGroups];
+    
+    for (int i = 0; i < blockGroups; i++)
+    {
+         file->vdi_read(&file->blockGroupDescriptorTable[i], sizeof(file->blockGroupDescriptorTable[i]));
+         file->vdi_lseek(sizeof(file->blockGroupDescriptorTable[i]), SEEK_CUR);
+    }
+}
+
+void blockClass::fetchBlock(int blockIndex, vdiFile* file, u8* buf)
+{
+    file->vdi_lseek((partitionStart)+blockIndex*blockSize, SEEK_SET);
+    file->vdi_read(&buf, blockSize);
+}
+
+void blockClass::fetchInode(int inodeIndex, vdiFile* file)
+{
+    /*inodeIndex-1;
+    int groupNumber;
+    groupNumber = (inodeIndex / file->superBlock.s_inodes_per_group);
+    inodeIndex = (inodeIndex % file->superBlock.s_inodes_per_group);
+    __le32 startingBlock = file->blockGroupDescriptorTable[groupNumber].bg_inode_table;
+    int blockNumber = startingBlock+inodeIndex/file->superBlock.s_inodes_per_group;
+    inodeIndex = inodeIndex % file->superBlock.s_inodes_per_group;
+    //Fetch block b         b=blockNumber
+    int block[blockSize];
+    fetchBlock(blockNumber, file, &block)*/
+    //b[i] is the inode.
+    //block[inodeIndex];
+}
+
+void blockClass::calculateMaxBlocks(ext2_super_block* sBlock)
+{
+    maxBlocks = 0x003fffff;
+    if (maxBlocks > sBlock->s_blocks_count)
+    {
+	maxBlocks = sBlock->s_blocks_count;
+    }
+    maxBlocks <<= 10;
+    maxBlocks = (maxBlocks + sBlock->s_blocks_per_group - 1 - sBlock->s_first_data_block) / sBlock->s_blocks_per_group;
+}
+
+void blockClass::calculateGDTBlocks(vdiFile* file)
+{
+    groupDescriptorPerBlock = blockSize / (sizeof(struct ext2_group_desc));
+    //cout << "GDPB: " << groupDescriptorPerBlock << endl;
+    groupDTBlocksUsed = (blockGroups + groupDescriptorPerBlock - 1) / groupDescriptorPerBlock;
+    //cout << "GDPBUsed: " << groupDTBlocksUsed << endl;
+    groupDTBlocks = ((maxBlocks + groupDescriptorPerBlock - 1) / groupDescriptorPerBlock) - groupDTBlocksUsed;
+    //cout << "GDPBlocks before if: " << groupDTBlocks << endl;
+    if (groupDTBlocks > addressesPerBlock)
+    {
+	groupDTBlocks = addressesPerBlock;
+    }
+    //cout << "GDPBlocks after if: " << groupDTBlocks << endl;
+    groupDTBlocks += groupDTBlocksUsed;
+    //cout << "GDPBlocks: " << groupDTBlocks << endl;
 }
 
 void blockClass::calculateSpace(ext2_super_block* sBlock)
@@ -336,3 +408,70 @@ int blockClass::getUsedSpace()
 {
     return usedSpace;
 }
+
+void blockClass::displayFileInformation(vdiFile* file)
+{
+    cout << "MBR Signature: " << hex << file->MBR.magic << dec << endl;
+    
+    cout << endl;
+    cout << "File System Size: " << file->header.diskSize << endl;
+    
+    cout << endl;
+    cout << "Space Available:  " << getFreeSpace() << endl;
+    
+    cout << endl;
+    cout << "Used Space:       " << getUsedSpace() << endl;
+    
+
+    cout << endl;
+    cout << "Number of Blocks: " << " Total - " << file->superBlock.s_blocks_count << " Free - " << file->superBlock.s_free_blocks_count << 
+                                    " Reserved - " << file->superBlock.s_r_blocks_count << endl;
+    cout << "Number of Inodes: " << " Total - " << file->superBlock.s_inodes_count << " Free - " << file->superBlock.s_free_inodes_count << endl;
+    
+    cout << endl;
+    cout << "First Data Block: " << file->superBlock.s_first_data_block << endl;
+    
+    cout << endl;
+    cout << "Block Size:       " << blockSize << endl;
+
+    cout << endl;
+    cout << "Block Groups:     " << blockGroups << endl;
+
+    cout << endl;
+    cout << "Blocks Per Group: " << file->superBlock.s_blocks_per_group << endl;
+	
+    cout << endl;
+    cout << "Inodes Per Group: " << file->superBlock.s_inodes_per_group << endl;
+
+    cout << endl;
+    cout << "GDT Blocks      : " << groupDTBlocks << endl;
+
+    cout << endl;
+    cout << "Inodes Per Block: " << inodesPerBlock << endl;
+
+    cout << endl;
+    cout << "Addresses Per Bk: " << addressesPerBlock << endl;
+
+    cout << endl;
+    for (int i = 0; i < blockGroups; i++)
+    {
+        cout << "Group: " << i << endl;
+        cout << endl;
+	cout << "Block Bitmap: " << file->blockGroupDescriptorTable[i].bg_block_bitmap << endl;
+	cout << "Inode Bitmap: " << file->blockGroupDescriptorTable[i].bg_inode_bitmap << endl;
+	cout << "Inode Table:  " << file->blockGroupDescriptorTable[i].bg_inode_table  << endl;
+	cout << "Free Blocks:  " << file->blockGroupDescriptorTable[i].bg_free_blocks_count << endl;
+	cout << "Free Inodes:  " << file->blockGroupDescriptorTable[i].bg_free_inodes_count << endl;
+        cout << endl;
+        cout << endl;
+    }
+
+    cout << endl;
+    cout << "Max Blocks:       " << maxBlocks << endl;
+
+    cout << endl;
+    cout << "FileSystem State: " << file->superBlock.s_state << endl;
+}
+
+
+
