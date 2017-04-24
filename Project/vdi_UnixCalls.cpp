@@ -137,15 +137,19 @@ class blockClass
     int groupDTBlocks;
     int inodesPerBlock;
     int addressesPerBlock;
+    int numberOfFiles;
+    int numberOfDirectories;
 
     public:
         void fetchSuperblock(vdiFile*);
-        void fetchBlock(int, vdiFile*, u8*);
+        void fetchBlock(int, vdiFile*, ext2_inode*);
         void fetchInode(int, vdiFile*);
         void fetchBlockGroupDescriptorTable(vdiFile*);
+        bool checkBGDT(vdiFile*);
         void calculateMaxBlocks(ext2_super_block*);
-        void calculateGDTBlocks(vdiFile* file);
+        void calculateGDTBlocks(vdiFile*);
         void calculateSpace(ext2_super_block*);   
+        void calculateFiles(vdiFile*);
         int getFreeSpace();
         int getUsedSpace();
         void displayFileInformation(vdiFile*);
@@ -325,7 +329,8 @@ void blockClass::fetchSuperblock(vdiFile* file)
     inodesPerBlock = blockSize / file->superBlock.s_inode_size;
     
     calculateSpace(&file->superBlock);
-    
+    calculateFiles(file);
+    fetchInode(2, file);
     //cout << hex << file->superBlock.s_magic << dec << endl;
 }
 
@@ -342,26 +347,59 @@ void blockClass::fetchBlockGroupDescriptorTable(vdiFile* file)
     }
 }
 
-void blockClass::fetchBlock(int blockIndex, vdiFile* file, u8* buf)
+bool blockClass::checkBGDT(vdiFile* file)
+{
+    int BGDTFreeBlockTotal = 0;
+    int BGDTFreeInodeTotal = 0;
+    for (int i = 0; i < blockGroups; i++)
+    {
+         BGDTFreeBlockTotal += file->blockGroupDescriptorTable[i].bg_free_blocks_count;
+         BGDTFreeInodeTotal += file->blockGroupDescriptorTable[i].bg_free_inodes_count;
+    }
+    if (file->superBlock.s_free_blocks_count != BGDTFreeBlockTotal)
+    {
+        return false;
+    }
+    if (file->superBlock.s_free_inodes_count != BGDTFreeInodeTotal)
+    {
+        return false;
+    }
+    return true;
+}
+
+void blockClass::fetchBlock(int blockIndex, vdiFile* file, ext2_inode* buf)
 {
     file->vdi_lseek((partitionStart)+blockIndex*blockSize, SEEK_SET);
-    file->vdi_read(&buf, blockSize);
+    cout << endl;
+    cout << "SIZE OF BUF  " << sizeof(buf[0]) << endl; 
+    cout << endl;
+    for (int i = 0; i < inodesPerBlock; i ++)
+    {
+         file->vdi_read(&buf[i], sizeof(buf[i]));
+         file->vdi_lseek(sizeof(buf[i]), SEEK_CUR);
+    }
 }
 
 void blockClass::fetchInode(int inodeIndex, vdiFile* file)
 {
-    /*inodeIndex-1;
+    inodeIndex--;
     int groupNumber;
     groupNumber = (inodeIndex / file->superBlock.s_inodes_per_group);
     inodeIndex = (inodeIndex % file->superBlock.s_inodes_per_group);
     __le32 startingBlock = file->blockGroupDescriptorTable[groupNumber].bg_inode_table;
-    int blockNumber = startingBlock+inodeIndex/file->superBlock.s_inodes_per_group;
-    inodeIndex = inodeIndex % file->superBlock.s_inodes_per_group;
+    int blockNumber = startingBlock+inodeIndex/inodesPerBlock;
+    inodeIndex = inodeIndex % inodesPerBlock;
     //Fetch block b         b=blockNumber
-    int block[blockSize];
-    fetchBlock(blockNumber, file, &block)*/
+    ext2_inode* block = new ext2_inode[inodesPerBlock];
+    cout << endl;
+    cout << "size of block: " << sizeof(block[0]) << endl;
+    cout << "inode index: " << inodeIndex << endl;
+    fetchBlock(blockNumber, file, block);
     //b[i] is the inode.
-    //block[inodeIndex];
+    ext2_inode inode = block[inodeIndex];
+    cout << "Inode Size: " << inode.i_size << endl;
+    cout << "Inode Blocks: " << inode.i_blocks << endl;
+    cout << "Inode Links: " << inode.i_links_count << endl;
 }
 
 void blockClass::calculateMaxBlocks(ext2_super_block* sBlock)
@@ -399,6 +437,17 @@ void blockClass::calculateSpace(ext2_super_block* sBlock)
     usedSpace = (space - freeSpace);
 }
 
+void blockClass::calculateFiles(vdiFile* file)
+{
+    numberOfFiles = 0;
+    numberOfDirectories = 0;
+    for (int i = 0; i < blockGroups; i++)
+    {
+         numberOfDirectories += file->blockGroupDescriptorTable[i].bg_used_dirs_count;
+    }
+    numberOfFiles = file->superBlock.s_inodes_count - (numberOfDirectories+file->superBlock.s_free_inodes_count);
+}
+
 int blockClass::getFreeSpace()
 {
     return freeSpace;
@@ -427,6 +476,9 @@ void blockClass::displayFileInformation(vdiFile* file)
     cout << "Number of Blocks: " << " Total - " << file->superBlock.s_blocks_count << " Free - " << file->superBlock.s_free_blocks_count << 
                                     " Reserved - " << file->superBlock.s_r_blocks_count << endl;
     cout << "Number of Inodes: " << " Total - " << file->superBlock.s_inodes_count << " Free - " << file->superBlock.s_free_inodes_count << endl;
+    
+    cout << endl;
+    cout << "Match w/ Bitmap:  " << checkBGDT(file) << endl;
     
     cout << endl;
     cout << "First Data Block: " << file->superBlock.s_first_data_block << endl;
@@ -469,6 +521,12 @@ void blockClass::displayFileInformation(vdiFile* file)
     cout << endl;
     cout << "Max Blocks:       " << maxBlocks << endl;
 
+    cout << endl;
+    cout << "Files Count:      " << numberOfFiles << endl;
+
+    cout << endl;
+    cout << "Directories Cnt:  " << numberOfDirectories << endl;
+ 
     cout << endl;
     cout << "FileSystem State: " << file->superBlock.s_state << endl;
 }
