@@ -15,12 +15,18 @@
 #define EXT2FUNCTIONS_H
 
 class EXT2Functions {
+
 public:
     EXT2Functions();
     EXT2Functions(const EXT2Functions& orig);
     virtual ~EXT2Functions();
-private:
+    
 
+private:
+    
+
+    
+    
 };
 
 #endif /* EXT2FUNCTIONS_H */

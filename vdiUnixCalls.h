@@ -16,7 +16,9 @@ off_t vdi_lseek(off_t offset, int whence);
 
 void setHeader();
 
-int translate();
+void translate();
+
+//void fetchSuperBlock(vdiFile fileToFetchFrom);
 
 
 #endif
