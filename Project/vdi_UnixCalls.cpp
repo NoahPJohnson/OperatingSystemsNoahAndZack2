@@ -68,6 +68,8 @@ translate()
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <stdlib.h>
+#include <stdio.h>
 
 using namespace std;
 
@@ -139,11 +141,14 @@ class blockClass
     int addressesPerBlock;
     int numberOfFiles;
     int numberOfDirectories;
+    ext2_super_block* superBlockArray;
 
     public:
         void fetchSuperblock(vdiFile*);
-        void fetchBlock(int, vdiFile*, ext2_inode*);
-        void fetchInode(int, vdiFile*);
+        void fetchSuperBlocks(vdiFile*);
+        bool compareSuperBlocks(vdiFile*);
+        void fetchBlock(int, vdiFile*, u8*);
+        ext2_inode fetchInode(int, vdiFile*);
         void fetchBlockGroupDescriptorTable(vdiFile*);
         bool checkBGDT(vdiFile*);
         void calculateMaxBlocks(ext2_super_block*);
@@ -153,7 +158,35 @@ class blockClass
         int getFreeSpace();
         int getUsedSpace();
         void displayFileInformation(vdiFile*);
+        int getBlockSize();
 };
+
+class directoryClass {
+	vdiFile* file;
+	int dirCursor;
+	blockClass* bClass;
+	ext2_inode foo;
+	unsigned char* buf;
+	//int inode;
+	//string name;
+	
+	public:
+                directoryClass(vdiFile*, blockClass*);
+		unsigned char* fetchBlockFromInode(int, ext2_inode);
+		void openDir(int);
+		int readDir(int&, char*);
+		void closeDir(void);
+		void rewindDir(void);
+		void traverseDirectory();
+		void scanDir(int);
+		
+};
+
+directoryClass::directoryClass(vdiFile* inputFile, blockClass* bC)
+{
+    file = inputFile;
+    bClass = bC;    
+} 
 
 int main()
 {
@@ -161,7 +194,8 @@ int main()
     
 
     vdiFile testFile;    
-    blockClass blockLayer;    
+    blockClass blockLayer;  
+    directoryClass directoryLayer(&testFile, &blockLayer);
 
     testFile.vdi_open("/home/csis/Downloads/Good/Test-fixed-1k.vdi");
 
@@ -190,6 +224,19 @@ int main()
     cout << "Inodes: " << testFile.superBlock.s_inodes_count << endl;
     cout << "SuperBlock: " << hex << testFile.superBlock.s_magic << dec << endl;
     cout << "First Inode: " << testFile.superBlock.s_first_ino << endl;
+    
+    cout << endl;
+    cout << endl;
+    cout << "Open directory, etc. ..." << endl;
+    cout << endl;
+    int a = 2;
+    char name = 'h';
+    directoryLayer.openDir(2);
+    directoryLayer.readDir(a, &name);
+    cout << "A = " << a << endl;
+    cout << "Name = " << name << endl;
+    cout << endl;
+    cout << endl;
 
     for (int i = 0; i < sizeof(testFile.MBR.unused0); i ++)
     {
@@ -294,14 +341,14 @@ void vdiFile::translate()
     //int frame;
     int location; 
 
-    cout << "Cursor: " << cursor << endl; 
-    cout << "Block Size: " << header.blockSize << endl;
+    //cout << "Cursor: " << cursor << endl; 
+    //cout << "Block Size: " << header.blockSize << endl;
     pageNumber = cursor / header.blockSize;
-    cout << "page number: " << pageNumber << endl;
+    //cout << "page number: " << pageNumber << endl;
     offset = cursor % header.blockSize;
-    cout << "Offset: " << offset << endl;
+    //cout << "Offset: " << offset << endl;
     location = header.offsetData + (map[pageNumber] * header.blockSize) + offset;
-    cout << "location: " << location << endl;
+    //cout << "location: " << location << endl;
     lseek(fd, location, SEEK_SET);   
 }
 
@@ -330,8 +377,105 @@ void blockClass::fetchSuperblock(vdiFile* file)
     
     calculateSpace(&file->superBlock);
     calculateFiles(file);
-    fetchInode(2, file);
+    ext2_inode inode = fetchInode(2, file);
+    cout << "Inode Size: " << inode.i_size << endl;
+    cout << "Inode Blocks: " << inode.i_blocks << endl;
+    cout << "Inode Links: " << inode.i_links_count << endl;
     //cout << hex << file->superBlock.s_magic << dec << endl;
+    fetchSuperBlocks(file);
+    cout << "Compare Super Blocks: " << compareSuperBlocks(file) << endl;
+}
+
+void blockClass::fetchSuperBlocks(vdiFile* file)
+{
+    superBlockArray = new ext2_super_block[6];
+    int j = 0;
+    for (int i = 0; i < 6; i ++)
+    {
+         file->vdi_lseek(partitionStart+1024+(j*blockSize*file->superBlock.s_blocks_per_group), SEEK_SET);
+         file->vdi_read(&superBlockArray[i], 1024);
+         if (j==0)
+         {
+             j++; 
+         }
+         else
+         {
+             j+=2;
+         }
+    }
+}
+
+bool blockClass::compareSuperBlocks(vdiFile* file)
+{
+    for (int i = 0; i < 6; i ++)
+    {
+         if (file->superBlock.s_inodes_count != superBlockArray[i].s_inodes_count)
+         {
+             cout << "Index: " << i << " Inodes Count: " << superBlockArray[i].s_inodes_count; 
+             return false;
+         }
+         if (file->superBlock.s_blocks_count != superBlockArray[i].s_blocks_count)
+         {
+             cout << "Index: " << i << " Blocks Count: " << superBlockArray[i].s_blocks_count; 
+             return false;
+         }
+         if (file->superBlock.s_r_blocks_count != superBlockArray[i].s_r_blocks_count)
+         {
+             cout << "Index: " << i << " Reserved Blocks Count: " << superBlockArray[i].s_r_blocks_count; 
+             return false;
+         }
+         if (file->superBlock.s_first_data_block != superBlockArray[i].s_first_data_block)
+         {
+             cout << "Index: " << i << " First Data Block: " << superBlockArray[i].s_first_data_block; 
+             return false;
+         }
+         if (file->superBlock.s_log_block_size != superBlockArray[i].s_log_block_size)
+         {
+             cout << "Index: " << i << " Block Size: " << superBlockArray[i].s_log_block_size; 
+             return false;
+         }
+         if (file->superBlock.s_log_frag_size != superBlockArray[i].s_log_frag_size)
+         {
+             cout << "Index: " << i << " Frag Size: " << superBlockArray[i].s_log_frag_size; 
+             return false;
+         }
+         if (file->superBlock.s_blocks_per_group != superBlockArray[i].s_blocks_per_group)
+         {
+             cout << "Index: " << i << " Blocks Per Group: " << superBlockArray[i].s_blocks_per_group; 
+             return false;
+         }
+         if (file->superBlock.s_frags_per_group != superBlockArray[i].s_frags_per_group)
+         {
+             cout << "Index: " << i << " Frags Per Group: " << superBlockArray[i].s_frags_per_group; 
+             return false;
+         }
+         if (file->superBlock.s_magic != superBlockArray[i].s_magic)
+         {
+             cout << "Index: " << i << " Magic: " << superBlockArray[i].s_magic; 
+             return false;
+         }
+         if (file->superBlock.s_minor_rev_level != superBlockArray[i].s_minor_rev_level)
+         {
+             cout << "Index: " << i << " Rev Level: " << superBlockArray[i].s_minor_rev_level; 
+             return false;
+         }
+         if (file->superBlock.s_creator_os != superBlockArray[i].s_creator_os)
+         {
+             cout << "Index: " << i << " Creator OS: " << superBlockArray[i].s_creator_os; 
+             return false;
+         }
+         if (file->superBlock.s_first_ino != superBlockArray[i].s_first_ino)
+         {
+             cout << "Index: " << i << " First Inode: " << superBlockArray[i].s_first_ino; 
+             return false;
+         }
+         if (file->superBlock.s_inode_size != superBlockArray[i].s_inode_size)
+         {
+             cout << "Index: " << i << " Inode Size: " << superBlockArray[i].s_inode_size; 
+             return false;
+         }
+    }
+    return true;
 }
 
 void blockClass::fetchBlockGroupDescriptorTable(vdiFile* file)
@@ -367,20 +511,17 @@ bool blockClass::checkBGDT(vdiFile* file)
     return true;
 }
 
-void blockClass::fetchBlock(int blockIndex, vdiFile* file, ext2_inode* buf)
+void blockClass::fetchBlock(int blockIndex, vdiFile* file, u8* buf)
 {
     file->vdi_lseek((partitionStart)+blockIndex*blockSize, SEEK_SET);
-    cout << endl;
-    cout << "SIZE OF BUF  " << sizeof(buf[0]) << endl; 
-    cout << endl;
-    for (int i = 0; i < inodesPerBlock; i ++)
-    {
-         file->vdi_read(&buf[i], sizeof(buf[i]));
-         file->vdi_lseek(sizeof(buf[i]), SEEK_CUR);
-    }
+    //cout << endl;
+    //cout << "SIZE OF BUF  " << sizeof(buf[0]) << endl; 
+    //cout << endl;
+    file->vdi_read(buf, blockSize);
+    //file->vdi_lseek(sizeof(buf[i]), SEEK_CUR);
 }
 
-void blockClass::fetchInode(int inodeIndex, vdiFile* file)
+ext2_inode blockClass::fetchInode(int inodeIndex, vdiFile* file)
 {
     inodeIndex--;
     int groupNumber;
@@ -391,15 +532,14 @@ void blockClass::fetchInode(int inodeIndex, vdiFile* file)
     inodeIndex = inodeIndex % inodesPerBlock;
     //Fetch block b         b=blockNumber
     ext2_inode* block = new ext2_inode[inodesPerBlock];
-    cout << endl;
-    cout << "size of block: " << sizeof(block[0]) << endl;
-    cout << "inode index: " << inodeIndex << endl;
-    fetchBlock(blockNumber, file, block);
+    u8* buf = new u8[blockSize];
+    //cout << endl;
+    //cout << "size of block: " << sizeof(block[0]) << endl;
+    //cout << "inode index: " << inodeIndex << endl;
+    fetchBlock(blockNumber, file, buf);
+    block = (ext2_inode*)buf;
     //b[i] is the inode.
-    ext2_inode inode = block[inodeIndex];
-    cout << "Inode Size: " << inode.i_size << endl;
-    cout << "Inode Blocks: " << inode.i_blocks << endl;
-    cout << "Inode Links: " << inode.i_links_count << endl;
+    return block[inodeIndex];
 }
 
 void blockClass::calculateMaxBlocks(ext2_super_block* sBlock)
@@ -530,6 +670,150 @@ void blockClass::displayFileInformation(vdiFile* file)
     cout << endl;
     cout << "FileSystem State: " << file->superBlock.s_state << endl;
 }
+
+int blockClass::getBlockSize()
+{
+    return blockSize;
+}
+
+u8* directoryClass::fetchBlockFromInode(int blkNum, ext2_inode node) 
+{
+	u8* buf2 = new u8[bClass->getBlockSize()];
+        bClass->fetchBlock(node.i_block[blkNum], file, buf2);
+	return buf2; // needs fixed later
+}
+	
+void directoryClass::openDir(int index) 
+{
+	cout << "index test " << index << endl;
+	foo = bClass->fetchInode(index, file);
+	cout << "tee hee " << endl;
+	buf = (u8*)malloc(foo.i_size);
+	cout << "tee hee" << endl;
+	for(int i = 0 ; i < 15; i++) {
+		cout << i+1 << ": " << foo.i_block[i] << endl;
+	}
+	//cout << endl << "first i_size " << foo.i_size << endl;
+	//cout << endl;
+	
+	cout << endl << "blockSize " << bClass->getBlockSize() << endl;
+	for(int b = 0; b < 15; b++) 
+        { // run for each block
+			if(foo.i_block[b] != 0) 
+                        {
+				//count++;
+				//cout << endl << "b is " << b << endl;
+				//cout << "i_block address " << foo.i_block[b] << endl;
+				for(int j = 0; j < bClass->getBlockSize(); j++) 
+                                {
+					buf[j + b*bClass->getBlockSize()] = fetchBlockFromInode(b,foo)[j]; 
+				}
+			}
+	}
+	cout << endl << "i_size " << foo.i_size << endl;	
+	dirCursor = 0;	
+	//free(buf); 
+	//cout << "i_blocks " << foo.i_blocks << endl;
+	//cout << "count " << count << endl;
+	/*cout << endl << "test: " << buf.i_size << endl;
+	ext2_inode *pmet = (ext2_inode*)buf;
+	cout << endl << "test: " << pmet->i_size << endl;
+	unsigned char* buf = (unsigned char*)malloc(temp.i_size);*/
+}
+
+int directoryClass::readDir(int& index_number, char* name) 
+{
+	if(dirCursor == foo.i_size) 
+        {
+		cout << endl << endl << "------------------------ END OF FILE REACH ------------------------" << endl << endl;
+		return 0;
+	}
+	else 
+        {
+		int tempCursor = dirCursor;
+		int tempIN = index_number;
+		struct ext2_dir_entry_2 *pDent = (struct ext2_dir_entry_2*)(buf+dirCursor);	
+		{	
+			cout << endl << "inode " << pDent->inode << endl;
+			cout << "rec_len = " << pDent->rec_len << endl;
+			cout << "name_len = " << (int)pDent->name_len << endl;
+			cout << "file_type = " << (int)pDent->file_type << endl;
+			cout << "name = \"";
+			for(int i = 0; i < pDent->name_len; i++) 
+                        {
+				cout << (char)pDent->name[i];
+			}
+			cout << "\"" << endl;
+		}
+		cout << endl << "pDent->inode = " << pDent->inode << endl;
+		cout << "*pDent->name = \"";
+		for(int i = 0; i < pDent->name_len; i++)  
+                {
+			cout << (char)pDent->name[i];
+		}
+		cout << "\"" << endl;
+		if(pDent->inode != 0 && *pDent->name != '.' && *pDent->name != ('.'+'.')) 
+                {
+			cout << "---GOOD---" << endl;
+			for(int i = 0; i < pDent->rec_len; i++) 
+                        {
+				name[i] = pDent->name[i];
+			}
+			name += 0;
+			cout << "---GOOD---" << endl;
+		}
+		cout << "old dirCursor = " << tempCursor /*-*buf*/ << endl;
+		dirCursor = tempCursor + (int)pDent->rec_len;
+		cout << "new dirCursor = " << dirCursor/*-*buf*/ << endl;
+		cout << endl << "old index = " << tempIN << endl;
+		index_number = (int)pDent->inode;
+		cout << "new index = " << index_number << endl;		
+	//}
+	/*
+	if(dirCursor == foo.i_size)
+		return 0;
+	else {
+		cout << endl << "pDent->inode = " << pDent->inode << endl;
+		cout << "*pDent->name = \"" << *pDent->name << "\"" << endl; 
+		if(pDent->inode != 0 && *pDent->name != '.' && *pDent->name != ('.'+'.')) {
+			cout << "old dirCursor = " << dirCursor << endl;
+			dirCursor += (int)pDent->rec_len;
+			cout << "new dirCursor = " << dirCursor << endl;
+			cout << endl << "old index = " << index_number << endl;
+			index_number = (int)pDent->inode;
+			cout << "index just change = " << index_number << endl;
+			for(int i = 0; i < pDent -> rec_len; i++) {
+				name[i] = pDent->name[i];
+			}
+			name += 0;
+		}
+		return 1;
+	}
+	*/
+		return 1;
+        }
+}
+
+void directoryClass::scanDir(int index)
+{ 
+	openDir(index);
+	//for(int i = 0; i 
+}
+	
+void directoryClass::rewindDir(void) 
+{
+	dirCursor = 0;
+}
+
+void directoryClass::traverseDirectory() 
+{
+    //openDirectory 2
+    //for ()     
+}
+
+
+
+
 
 
 
