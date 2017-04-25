@@ -288,9 +288,10 @@ int main() {
     directory dir(&testFile, &blockLayer);
     //int index = 11;
     //cout << "\n\n----------------------------- \n\n" << endl;
-    //int inputNum = 2;
-    //dir.openDir(inputNum);
-    //char name = ' ';
+    int inputNum = 2
+    ;
+    dir.openDir(inputNum);
+    char name = ' ';
     //cout << "inputNum originally " << inputNum << endl;
     /*cout << "\n\n----------------------------- \n\n" << endl;
     dir.readDir(inputNum, &name);// << endl;
@@ -314,13 +315,13 @@ int main() {
     
     
     //while(inputNum < testFile.superBlock.s_inodes_count) {
-	/* while(dir.getCursor() < dir.getI_Size()) {	
-		dir.readDir(inputNum, &name);// << endl;
-		cout << "\n\n----------------------------- \n\n";		
-	} */
+	cout << "\n\n----------------------------- \n\n";
+	while(dir.getCursor() < dir.getI_Size()) {	
+		dir.readDir(inputNum, &name);// << endl;		
+	} 
 	
 	
-	dir.traverseDirectory(2);
+	//dir.traverseDirectory(2);
 	
 	      
     //dir.rewindDir();
@@ -586,7 +587,7 @@ void blockClass::fetchSuperblock() {
 		numGDTBlocks = addressesPerBlock;
 	}
 	numGDTBlocks += groupDescriptorTableBlocksUsed;
-	cout << "maxBlocks = " << maxBlocks << "\n" << endl;
+	cout << "maxBlocks = " << maxBlocks	 << "\n" << endl;
 	cout << "numGDTBlocks = " << numGDTBlocks << "\n" << endl;
 }
 
@@ -727,8 +728,7 @@ int blockClass::getUsedSpace() {
 unsigned char* directory::fetchBlockFromInode(int blkNum, ext2_inode node) {
 	unsigned char* tempBuf = new unsigned char[bClass->getBlockSize()];
 	bClass->fetchBlock(node.i_block[blkNum], tempBuf);
-	//return fetchBlock2(
-	return tempBuf; // needs fixed later
+	return tempBuf;
 }
 
 int directory::getCursor() {
@@ -740,13 +740,13 @@ int directory::getI_Size() {
 }
 
 void directory::openDir(int index) {
-	cout << "index test " << index << endl;
+	cout << "index " << index << endl;
 	foo = bClass->fetchInode(index);
-	cout << "tee hee " << endl;
 	buf = (unsigned char*)malloc(foo.i_size);
-	cout << "tee hee" << endl;
+	int est = ((foo.i_size+bClass->getBlockSize()-1)/bClass->getBlockSize());
+	cout << "estimated number of blocks: " << est << endl;
 	for(int i = 0 ; i < 15; i++) {
-		cout << i+1 << ": " << foo.i_block[i] << endl;
+		cout << i << ": " << foo.i_block[i] << endl;
 	}
 	//cout << endl << "first i_size " << foo.i_size << endl;
 	//cout << endl;
@@ -783,37 +783,45 @@ int directory::readDir(int &index_number, char* name) {
 		int tempCursor = dirCursor;
 		int tempIN = index_number;
 		struct ext2_dir_entry_2 *pDent = (struct ext2_dir_entry_2*)(buf+dirCursor);	
-		{	
-			cout << endl << "inode " << pDent->inode << endl;
-			cout << "rec_len = " << pDent->rec_len << endl;
-			cout << "name_len = " << (int)pDent->name_len << endl;
-			cout << "file_type = " << (int)pDent->file_type << endl;
-			cout << "name = \"";
+		if(pDent->inode != 0) {
+			{	
+				cout << endl << "inode " << pDent->inode << endl;
+				cout << "rec_len = " << pDent->rec_len << endl;
+				cout << "name_len = " << (int)pDent->name_len << endl;
+				cout << "file_type = " << (int)pDent->file_type << endl;
+				cout << "name = \"";
+				for(int i = 0; i < pDent->name_len; i++) {
+					cout << (char)pDent->name[i];
+				}
+				cout << "\"" << endl;
+			}
+			cout << endl << "pDent->inode = " << pDent->inode << endl;
+			cout << "*pDent->name = \"";
 			for(int i = 0; i < pDent->name_len; i++) {
 				cout << (char)pDent->name[i];
 			}
 			cout << "\"" << endl;
-		}
-		cout << endl << "pDent->inode = " << pDent->inode << endl;
-		cout << "*pDent->name = \"";
-		for(int i = 0; i < pDent->name_len; i++) {
-			cout << (char)pDent->name[i];
-		}
-		cout << "\"" << endl;
-		if(pDent->inode != 0 && *pDent->name != '.' && *pDent->name != ('.'+'.')) {
-			cout << "---GOOD---" << endl;
-			for(int i = 0; i < pDent->rec_len; i++) {
-				name[i] = pDent->name[i];
+			if(pDent->inode != 0 && *pDent->name != '.' && *pDent->name != ('.'+'.')) {
+				cout << "---GOOD---" << endl;
+				for(int i = 0; i < pDent->rec_len; i++) {
+					name[i] = pDent->name[i];
+				}
+				name += 0;
+				cout << "---GOOD---" << endl;
 			}
-			name += 0;
-			cout << "---GOOD---" << endl;
 		}
-		cout << "old dirCursor = " << tempCursor /*-*buf*/ << endl;
+		if(pDent->inode != 0)
+			cout << "old dirCursor = " << tempCursor /*-*buf*/ << endl;
 		dirCursor = tempCursor + (int)pDent->rec_len;
-		cout << "new dirCursor = " << dirCursor/*-*buf*/ << endl;
-		cout << endl << "old index = " << tempIN << endl;
+		if(pDent->inode != 0)
+			cout << "new dirCursor = " << dirCursor/*-*buf*/ << endl;
+		if(pDent->inode != 0)	
+			cout << endl << "old index = " << tempIN << endl;
 		index_number = (int)pDent->inode;
-		cout << "new index = " << index_number << endl;		
+		if(pDent->inode != 0)
+			cout << "new index = " << index_number << endl;	
+		if(pDent->inode != 0) 
+			cout << "\n\n----------------------------- \n\n";
 	//}
 	/*
 	if(dirCursor == foo.i_size)
