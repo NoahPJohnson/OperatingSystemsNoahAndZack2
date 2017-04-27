@@ -234,6 +234,7 @@ class blockClass {
 		void getPartitionStart();
         void fetchSuperblock();
         int getBlockSize();
+        int getAPB();
         void fetchBlockGroupDescriptorTable();
         //void fetchBlock(int bN, vdiFile*, void* buf);4
         int fetchBlock(int, unsigned char*);
@@ -263,10 +264,11 @@ class directory {
 		int getI_Size();
 		unsigned char* fetchBlockFromInode(int, ext2_inode);
 		void openDir(int);
-		int readDir(int&, char*);
+		int readDir(int&, char*, int&);
 		void closeDir();
 		void rewindDir(void);
-		void traverseDirectory(int);
+		void traverseDirectory(int, char, int);
+		void fetchBlockFromFile(int, int*, unsigned char*);
 		
 };
 
@@ -288,10 +290,20 @@ int main() {
     directory dir(&testFile, &blockLayer);
     //int index = 11;
     //cout << "\n\n----------------------------- \n\n" << endl;
-    int inputNum = 2
-    ;
-    dir.openDir(inputNum);
-    char name = ' ';
+    
+    int inputNum = 30481;
+	dir.openDir(inputNum);
+    char name2 = ' ';
+    int fooType = 2;
+    
+    
+    //cout << "(blockSize/4) " << blockLayer.getBlockSize()/4 << " || APB " << blockLayer.getAPB() << endl;
+    //ext2_inode t = blockLayer.fetchInode(11);
+    //unsigned char* u[blockLayer.getBlockSize()];
+    
+    //*u = dir.fetchBlockFromInode(76, t);
+    
+    //fetch
     //cout << "inputNum originally " << inputNum << endl;
     /*cout << "\n\n----------------------------- \n\n" << endl;
     dir.readDir(inputNum, &name);// << endl;
@@ -316,12 +328,14 @@ int main() {
     
     //while(inputNum < testFile.superBlock.s_inodes_count) {
 	cout << "\n\n----------------------------- \n\n";
+	
 	while(dir.getCursor() < dir.getI_Size()) {	
-		dir.readDir(inputNum, &name);// << endl;		
+		dir.readDir(inputNum, &name2, fooType);	
 	} 
 	
-	
-	//dir.traverseDirectory(2);
+	//char kek = ' ';
+	//int tempFT = 2;
+	//dir.traverseDirectory(11, kek, tempFT);
 	
 	      
     //dir.rewindDir();
@@ -507,6 +521,10 @@ int blockClass::getBlockSize() {
 	return blockSize;
 }
 
+int blockClass::getAPB() {
+	return addressesPerBlock;
+}
+
 /*void blockClass::doInode(int i) {
     ext2_inode t = fetchInode(i);
     cout << "inode number: " << i << endl << endl;
@@ -606,7 +624,7 @@ void blockClass::fetchBlockGroupDescriptorTable() {
 		cout << "BG Free Blocks Count: "<< file->blockGroupDescriptorTable[i].bg_free_blocks_count << endl;
 		cout << "BG Free iNodes Count: " << file->blockGroupDescriptorTable[i].bg_free_inodes_count << endl;
 		cout << endl << endl;
-		malloc(2000);
+		//malloc(2000);
 	}
 }
 
@@ -634,6 +652,7 @@ ext2_inode blockClass::fetchInode(int i) {
 	unsigned char* buf = new unsigned char[blockSize];
 	fetchBlock(b,buf);
 	block = (ext2_inode*)buf;
+	free (buf);
 	return block[i];
 }
 
@@ -725,11 +744,82 @@ int blockClass::getUsedSpace() {
 	//cout << endl << end << same;
 }*/
 
-unsigned char* directory::fetchBlockFromInode(int blkNum, ext2_inode node) {
-	unsigned char* tempBuf = new unsigned char[bClass->getBlockSize()];
-	bClass->fetchBlock(node.i_block[blkNum], tempBuf);
-	return tempBuf;
+void directory::fetchBlockFromFile(int b, int *i_block, unsigned char *dest) {
+	int *list = new int[bClass->getAPB()]; 
+	unsigned char* temp = new unsigned char[bClass->getBlockSize()];
+	if(b < 12) {
+		list = i_block;
+		//cout << "did first block at " << b << endl;
+		goto direct;
+	}
+	else if(b < 12 + bClass->getAPB()) {
+		list = i_block+12;
+		b -= 12; 
+		goto single;
+	}
+	else if(b < 12 + (bClass->getAPB()*(1+bClass->getAPB()))) {
+		list = i_block + 13;
+		b -= 12 + bClass->getAPB();
+		goto dub;
+	}
+	else {
+		bClass->fetchBlock(i_block[14], (unsigned char*)list);
+		b -= 12 + bClass->getAPB()*(1+bClass->getAPB()); 
+	}
+	dub: 
+		bClass->fetchBlock(list[b/bClass->getAPB()/bClass->getAPB()], temp);
+		list = (int*)temp;
+		b %= bClass->getAPB()*bClass->getAPB();
+	single:
+		bClass->fetchBlock(list[b/bClass->getAPB()],temp);
+		list = (int*)temp;
+		b %= bClass->getAPB();
+	direct:
+		//cout << "looking at block " << b << endl;
+		bClass -> fetchBlock(list[b], dest);
 }
+
+/* unsigned char* directory::fetchBlockFromInode(int blkNum, ext2_inode node) {  // DIRECT SHOULD BE fetchBlock(list[b], dest);
+	unsigned char* tempBuf = new unsigned char[bClass->getBlockSize()];
+	if( blkNum < 12)	
+		bClass->fetchBlock(node.i_block[blkNum], tempBuf);
+	else if(12 <= blkNum && blkNum < 12+((bClass->getBlockSize())/4)) {
+		bClass->fetchBlock(node.i_block[12], tempBuf);
+		int* nums[bClass->getBlockSize()/4];
+		*nums = (int*)node.i_block[12];
+		cout << "nums: " <<endl;
+		for(int i = 0; i < bClass->getBlockSize()/4; i++) {
+			cout << i << ": " << nums[i] << endl;
+		} 
+		//unsigned char* tempBuf_2 = new unsigned char[bClass->getBlockSize()];
+		//tempBuf_2 = fetchBlock(nums[
+		
+		
+		
+		//for(int i = 0; i < bClass->getBlockSize()/4; i++) {
+		//	if(nums[i] == blkNum)
+		//}
+		
+	}
+	else if((bClass->getBlockSize()/4) <= blkNum  && blkNum < (bClass->getBlockSize()/4)*(bClass->getBlockSize()/4)) {
+		bClass->fetchBlock(node.i_block[13], tempBuf);
+		unsigned int* nums[bClass->getBlockSize()/4];
+		*nums = (unsigned int*)node.i_block[13];
+		for(int i = 0; i < bClass->getBlockSize(); i++) {
+			unsigned char* tempBuf_2 = new unsigned char[bClass->getBlockSize()];
+			bClass->fetchBlock(*nums[i], tempBuf_2);
+			 
+		}
+	} 
+	return tempBuf;
+	
+	// if < 12 use direct block
+	// else if between (12, 12+(blockSize/4)) access indirect block
+	// between  (12+(blockSize/4), 12+(blockSize/4)^2) is number of entries in double indirect block
+	// <= (blockSize/4)^2
+	// fetchblock for indirect w/array of ints x-12 for the xth block
+	// fetch 
+}*/
 
 int directory::getCursor() {
 	return dirCursor;
@@ -742,7 +832,9 @@ int directory::getI_Size() {
 void directory::openDir(int index) {
 	cout << "index " << index << endl;
 	foo = bClass->fetchInode(index);
+	cout << "i_size " << foo.i_size << endl;
 	buf = (unsigned char*)malloc(foo.i_size);
+	//unsigned char* fub = (unsigned char*)malloc(foo.i_size);
 	int est = ((foo.i_size+bClass->getBlockSize()-1)/bClass->getBlockSize());
 	cout << "estimated number of blocks: " << est << endl;
 	for(int i = 0 ; i < 15; i++) {
@@ -751,20 +843,29 @@ void directory::openDir(int index) {
 	//cout << endl << "first i_size " << foo.i_size << endl;
 	//cout << endl;
 	
-	cout << endl << "blockSize " << bClass->getBlockSize() << endl;
-	for(int b = 0; b < 15; b++) { // run for each block
+	//cout << endl << "blockSize " << bClass->getBlockSize() << endl;
+	
+	for(int b = 0; b * bClass->getBlockSize() < foo.i_size; b++) { // run for each block
 			if(foo.i_block[b] != 0) {
 				//count++;
 				//cout << endl << "b is " << b << endl;
 				//cout << "i_block address " << foo.i_block[b] << endl;
+				int t = b;
+				//int* nummy = new int[bClass->getAPB()];
+				unsigned char* buffy = new unsigned char[bClass->getBlockSize()];
+				//cout << endl << endl << "before " << endl;
+				fetchBlockFromFile(t, foo.i_block, buffy);
+				//cout << endl << endl <<"after " << endl;
 				for(int j = 0; j < bClass->getBlockSize(); j++) {
-					buf[j + b*bClass->getBlockSize()] = fetchBlockFromInode(b,foo)[j]; 
+					buf[j+b*bClass->getBlockSize()] = buffy[j];
+					//fub[j + b*bClass->getBlockSize()] = fetchBlockFromInode(b,foo)[j]; 
+					
 				}
 			}
 	}
-	cout << endl << "i_size " << foo.i_size << endl;	
-	dirCursor = 0;	
-	//free(buf); 
+	//for(
+	//cout << endl << "i_size " << foo.i_size << endl;	
+	dirCursor = 0;	 
 	//cout << "i_blocks " << foo.i_blocks << endl;
 	//cout << "count " << count << endl;
 	/*cout << endl << "test: " << buf.i_size << endl;
@@ -773,17 +874,21 @@ void directory::openDir(int index) {
 	unsigned char* buf = (unsigned char*)malloc(temp.i_size);*/
 }
 
-int directory::readDir(int &index_number, char* name) {
-	
+int directory::readDir(int &index_number, char* name, int &ft) {
+	cout << "--- READ STARTED ---" << endl;
+	//cout << "dirCursor: " << dirCursor << endl;
+	//cout << "index_number: " << index_number << endl;
 	if(dirCursor == foo.i_size) {
-		cout << endl << endl << "------------------------ END OF FILE REACH ------------------------" << endl << endl;
+		cout << endl << endl << "------------------------ END OF FILE REACHED ------------------------" << endl << endl;
 		return 0;
 	}
-	else {
+	//cout << "-------------- MID ---------------" << endl;
+	if(dirCursor != foo.i_size) {
+		//cout << "index number: " << index_number << endl;
 		int tempCursor = dirCursor;
 		int tempIN = index_number;
 		struct ext2_dir_entry_2 *pDent = (struct ext2_dir_entry_2*)(buf+dirCursor);	
-		if(pDent->inode != 0) {
+		/*if(pDent->inode != 0) {
 			{	
 				cout << endl << "inode " << pDent->inode << endl;
 				cout << "rec_len = " << pDent->rec_len << endl;
@@ -794,22 +899,28 @@ int directory::readDir(int &index_number, char* name) {
 					cout << (char)pDent->name[i];
 				}
 				cout << "\"" << endl;
-			}
-			cout << endl << "pDent->inode = " << pDent->inode << endl;
-			cout << "*pDent->name = \"";
-			for(int i = 0; i < pDent->name_len; i++) {
-				cout << (char)pDent->name[i];
-			}
-			cout << "\"" << endl;
-			if(pDent->inode != 0 && *pDent->name != '.' && *pDent->name != ('.'+'.')) {
-				cout << "---GOOD---" << endl;
-				for(int i = 0; i < pDent->rec_len; i++) {
-					name[i] = pDent->name[i];
-				}
-				name += 0;
-				cout << "---GOOD---" << endl;
-			}
+			}*/
+		cout << endl << "pDent->inode = " << pDent->inode << endl;
+		cout << "*pDent->name = \"";
+		for(int i = 0; i < pDent->name_len; i++) {
+			cout << (char)pDent->name[i];
 		}
+		cout << "\"" << endl;
+		//if(pDent->inode != 0/* && *pDent->name != '.' && *pDent->name != ('.'+'.')*/) {
+		//cout << "---GOOD---" << endl;
+		for(int i = 0; i < pDent->rec_len; i++) {
+					name[i] = pDent->name[i];
+		}
+		name += 0;
+		//cout << "---GOOD---" << endl;
+		//}
+		//}
+		ft = pDent->file_type;
+		if(pDent->inode == 0) {
+			cout << "\n\n--------------------- INODE IS 0 -----------------------\n\n" << endl;	
+		}
+		if(pDent->inode != 0)
+			cout << "file_type = " << ft << endl;
 		if(pDent->inode != 0)
 			cout << "old dirCursor = " << tempCursor /*-*buf*/ << endl;
 		dirCursor = tempCursor + (int)pDent->rec_len;
@@ -846,6 +957,7 @@ int directory::readDir(int &index_number, char* name) {
 	*/
 		return 1;
 	}
+	return 1;
 }
 
 void directory::closeDir() {
@@ -856,13 +968,22 @@ void directory::rewindDir(void) {
 	dirCursor = 0;
 }
 
-void directory::traverseDirectory(int in) {
-	openDir(in);
-	char name = ' ';
-	//while(readDir(in, &name) == 1) {
-		readDir(in, &name);
-		int temp = in;	
-		cout << temp << endl;
-	//	traverseDirectory(temp);
-	//}
+void directory::traverseDirectory(int inodeNum, char eman, int fileType) {
+	openDir(inodeNum);
+	//int count = 0;
+	while(readDir(inodeNum, &eman, fileType) == 1) {
+		cout << "-------------------- READ SUCCESSFUL ------------------\n\n\n" << endl;
+		//readDir(in, &name);
+		int temp = inodeNum;	
+		//cout << inodeNum << ": " << name <<"; " << fileType << endl;
+		//cout << "-------------------------------------------------------------------------------------------------------------" << endl;
+		if(inodeNum != 0 && eman != '.' && eman != ('.'+'.') && fileType == 2) {
+			traverseDirectory(temp, eman, fileType);
+			closeDir();
+			//closeDir();
+		}
+		
+		//cout << "count " << count << endl;
+		//count++;
+	}
 }
