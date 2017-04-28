@@ -292,85 +292,7 @@ int main() {
     blockLayer.getPartitionStart();
     blockLayer.fetchSuperblock();
     blockLayer.fetchBlockGroupDescriptorTable();
-    /*
-    blockLayer.doInode(12);
-    cout << endl;
-    blockLayer.doInode2(12);
-    */
-    //directory dir(&testFile, &blockLayer);
-    //dir.openDir(30481);
-    //int index = 11;
-    //cout << "\n\n----------------------------- \n\n" << endl;
-    
-    //int inputNum = 30481;
-	//dir.openDir(inputNum);
-    
-    //char name2 = ' ';
-    //int fooType = 2;
-    
-    
-    //cout << "(blockSize/4) " << blockLayer.getBlockSize()/4 << " || APB " << blockLayer.getAPB() << endl;
-    //ext2_inode t = blockLayer.fetchInode(11);
-    //unsigned char* u[blockLayer.getBlockSize()];
-    
-    //*u = dir.fetchBlockFromInode(76, t);
-    
-    //fetch
-    //cout << "inputNum originally " << inputNum << endl;
-    /*cout << "\n\n----------------------------- \n\n" << endl;
-    dir.readDir(inputNum, &name);// << endl;
-    cout << "main cursor " << dir.getCursor() << endl;
-    cout << "\n\n----------------------------- \n\n";
-    dir.readDir(inputNum, &name);
-	cout << "main cursor " << dir.getCursor() << endl;
-	cout << "\n\n----------------------------- \n\n";
-    dir.readDir(inputNum, &name);
-    cout << "main cursor " << dir.getCursor() << endl;
-    cout << "\n\n----------------------------- \n\n";
-    dir.readDir(inputNum, &name);
-    cout << "main cursor " << dir.getCursor() << endl;
-    cout << "\n\n----------------------------- \n\n"; 
-    dir.readDir(inputNum, &name);
-    cout << "main cursor " << dir.getCursor() << endl;
-    cout << "\n\n----------------------------- \n\n"; 
-    */
-    //cout << "calculated number of inodes " << testFile.superBlock.s_inodes_per_group * 16 << endl;
-    //cout << "number of inodes: " << testFile.superBlock.s_inodes_count << endl;
-    
-    
-    //while(inputNum < testFile.superBlock.s_inodes_count) {
-	//cout << "\n\n----------------------------- \n\n";
-	
-	/*while(dir.getCursor() < dir.getI_Size()) {	
-		cout << "cursor " << dir.getCursor() << endl;
-		cout << "i_size " << dir.getI_Size() << endl;
-		dir.readDir(inputNum, &name2, fooType);	
-		//dir.closeDir();
-	}*/ 
-	
-	
-	//dir.closeDir();
-	//dir.openDir(inputNum);
-	//dir.rewindDir();
-    
-    /*inputNum = 2041;
-    name2 = ' ';
-    fooType = 2;	
-    cout << "new cursor " << dir.getCursor() << endl;
-    cout << "new i_size " << dir.getI_Size() << endl;
-	while(dir.getCursor() < dir.getI_Size()) {
-		dir.readDir(inputNum, &name2, fooType);	
-		//dir.closeDir();
-	}
-	 */
-	 
-	//while(dir.readDir(inputNum, &name2, fooType) == 1) {
-	//	
-	//}
-	
-	//char kek = ' ';
-	//int tempFT = 2;
-	
+    	
 	nzInBit = new unsigned char[testFile.superBlock.s_inodes_count];
 	for(int i = 0; i < 10; i++) {
 		nzInBit[i] = (unsigned char)1;
@@ -385,11 +307,6 @@ int main() {
 	}
 	
 	traverseDirectory(2, &testFile, &blockLayer);
-	
-	/*cout << "Here's the inode bitmap: " << endl;
-	for(int i = 0; i < testFile.superBlock.s_inodes_count; i++) {
-		cout << (int)nzInBit[i] << " ";
-	}*/	
 	
 	cout << endl << "Number of inodes: " << testFile.superBlock.s_inodes_count << endl;
 	
@@ -420,108 +337,61 @@ int main() {
 	if(same == true)
 		cout << endl << "-------------- INODE BITMAPS ARE THE SAME --------------";
 	else
-		cout << endl << "-------------- :( --------------";
-		
+		cout << endl << "-------------- :( --------------";	
 	
 	unsigned char* fsBlkBit = new unsigned char[testFile.superBlock.s_blocks_count];
 	blockLayer.fetchBBM(fsBlkBit);
 	
-	int frankenBerry = 0; 
-	int dinkleburg = 0;
+	int numUnused = 0; 
+	int numUsed = 0;
+	int numOverused = 0;
 	for(int i = 0; i < testFile.superBlock.s_blocks_count; i++) {
 		if((int)nzBlkBit[i] == 0) {
-			frankenBerry++;
+			numUnused++;
 		}
-		if((int)nzBlkBit[i] > 1)
-			dinkleburg++;
+		else if((int)nzBlkBit[i] == 1) {
+			numUsed++;
+		}
+		else if((int)nzBlkBit[i] > 1) {
+			numOverused++;
+		}
 	}
 	
-	cout << endl << endl << "File system's number of UNUSED files: 21487 = " << frankenBerry << endl;
-	cout << "File system's amount of OVERUSED: 0 = " << dinkleburg << endl;
-	cout << "File System's USED files: 108561 = " << testFile.superBlock.s_blocks_count-frankenBerry << endl;
+	cout << endl << endl << "File system's number of UNUSED files: 21487 = " << numUnused << endl;
+	cout << "File system's amount of OVERUSED: 0 = " << numOverused << endl;
+	cout << "File System's USED files: 108561 = " << testFile.superBlock.s_blocks_count- numUnused - numOverused << endl;
 		
-		
-    //dir.rewindDir();
-    //cout << "inputNum " << inputNum << endl;
-    //cout << "cursor 2" << dir.getCursor() << endl;
-    //int a = 11;
-    //dir.readDir(a, &name);
-    //blockLayer.fetchInode(inputNum);
-    //cout << "main test LEL " << endl;
-    //dir.closeDir();
-    //dir.openDir(inputNum);
-    //dir.readDir(inputNum, &name); 
-    //dir.readDir(inputNum, &name);
-    //cout << "\n\n----------------------------- \n\n";
-    //dir.readDir(inputNum, &name);
-    //cout << "\n\n----------------------------- \n\n";
-    //dir.readDir(inputNum, &name);
-    //cout << "\n\n----------------------------- \n\n";
-    //dir.readDir(inputNum, &name);
     
-    //cout << endl << "printing changed index in main is " << inputNum << endl;
-    //cout << "name: " << name << endl;
-    //cout << endl << "\n---------------------------- \n" << endl;
-	
-	/*directory rid(&testFile, &blockLayer);
-	rid.openDir(11);
-	int numInput = 0;
-    char eman = 'h';
-    cout << "inputNum originally " << numInput << endl;
-    rid.readDir(numInput, &eman);// << endl;
-    //cout << endl << "printing changed index in main is " << numInput << endl;
-    //cout << "name: " << eman << endl;
-    cout << endl << "\n ---------------------------- \n" << endl;*/
-
-	/*directory dir2(&testFile, &blockLayer);
-	dir2.openDir(12);
-	int inputNum2 = 0;
-    char name2 = 'h';
-    cout << "inputNum originally " << inputNum2 << endl;
-    dir2.readDir(inputNum2, &name2);// << endl;
-    //cout << endl << "printing changed index in main is " << numInput << endl;
-    //cout << "name: " << eman << endl;*/
-
-
-
-	//dir.readDir(inputNum, &name);// << endl;
-    //cout << endl << "printing changed index in main is " << (int)inputNum << endl;
-    //cout << "name: " << name << endl;
-    
-    //ext2_inode temp = blockLayer.fetchInode(index);
-    //cout << endl << "outside temp.i_size " << temp.i_size << endl;
-    
-    //blockLayer.readBitmap(&testFile, 'b', 3);
     /*cout << "Number of block groups: " << blockLayer.getNumBlockGroups() << "\n" << endl;
 	blockLayer.fetchBlock(3, &testFile);
 	
     cout << "Name: " << testFile.header.name << endl;
-        cout << "Magic Number: " << hex << testFile.header.magicNumber << dec << endl;
-        cout << "header Size: " << testFile.header.headerSize << endl;
-        cout << "Image Description: " << testFile.header.imageDescription << endl;
-        cout << "Offset Blocks: " << testFile.header.offsetBlocks << endl;
-        cout << "Offset Data: " << testFile.header.offsetData << endl;
-        cout << "Sectors: " << testFile.header.Sectors << endl;
-        cout << "Sector Size: " << testFile.header.sectorSize << endl;
-        cout << "Disk Size: " << testFile.header.diskSize << endl;
-        cout << "Block Size: " << testFile.header.blockSize << endl;
-        cout << "Blocks in HDD: " << testFile.header.blocksInHDD << endl;
-        cout << "Inodes: " << testFile.superBlock.s_inodes_count << endl;
-        cout << "SuperBlock: " << hex << testFile.superBlock.s_magic << dec << endl;
-        cout << "First Inode: " << testFile.superBlock.s_first_ino << endl;
-        for (unsigned int i = 0; i < sizeof(testFile.MBR.unused0); i ++)
-        {
-            //cout << "Code from Read: " << testFile.MBR.unused0[i] << endl;
-        }
-        for (int i = 0; i < 4; i ++)
-        {
-            cout << "Partition Table Type: " << testFile.MBR.partitionTable[i].type << endl;
-            cout << "Partition Table: " << testFile.MBR.partitionTable[i].firstSector << endl;
-        }
-		blockLayer.printBlock(&testFile);
-        //cout << endl;
-        //cout << "First inode: " << testFile.superBlock.s_first_ino << endl;
-        */
+	cout << "Magic Number: " << hex << testFile.header.magicNumber << dec << endl;
+	cout << "header Size: " << testFile.header.headerSize << endl;
+	cout << "Image Description: " << testFile.header.imageDescription << endl;
+	cout << "Offset Blocks: " << testFile.header.offsetBlocks << endl;
+	cout << "Offset Data: " << testFile.header.offsetData << endl;
+	cout << "Sectors: " << testFile.header.Sectors << endl;
+	cout << "Sector Size: " << testFile.header.sectorSize << endl;
+	cout << "Disk Size: " << testFile.header.diskSize << endl;
+	cout << "Block Size: " << testFile.header.blockSize << endl;
+	cout << "Blocks in HDD: " << testFile.header.blocksInHDD << endl;
+	cout << "Inodes: " << testFile.superBlock.s_inodes_count << endl;
+	cout << "SuperBlock: " << hex << testFile.superBlock.s_magic << dec << endl;
+	cout << "First Inode: " << testFile.superBlock.s_first_ino << endl;
+	for (unsigned int i = 0; i < sizeof(testFile.MBR.unused0); i ++)
+	{
+		//cout << "Code from Read: " << testFile.MBR.unused0[i] << endl;
+	}
+	for (int i = 0; i < 4; i ++)
+	{
+		cout << "Partition Table Type: " << testFile.MBR.partitionTable[i].type << endl;
+		cout << "Partition Table: " << testFile.MBR.partitionTable[i].firstSector << endl;
+	}
+	blockLayer.printBlock(&testFile);
+	//cout << endl;
+	//cout << "First inode: " << testFile.superBlock.s_first_ino << endl;
+	*/
         return 0;
 }
 
@@ -621,14 +491,6 @@ int blockClass::getBlockSize() {
 int blockClass::getAPB() {
 	return addressesPerBlock;
 }
-
-/*void blockClass::doInode(int i) {
-    ext2_inode t = fetchInode(i);
-    cout << "inode number: " << i << endl << endl;
-	cout << "inode's size at inode " << i << ": " << t.i_size << endl;
-    cout << "indoe blocks: " << t.i_blocks << endl;
-    cout << "inode links: " << t.i_links_count << endl;
-}*/
 
 void blockClass::doInode(int i) {
     ext2_inode t = fetchInode(i);
@@ -730,14 +592,6 @@ int blockClass::fetchBlock(int b, unsigned char *buf) {
 	return file->vdi_read(buf,blockSize);
 }
 
-/*void blockClass::fetchBlock(int b, ext2_inode *buf) {
-	file->vdi_lseek((b*blockSize)+partitionStart, SEEK_SET);
-	for(int i = 0; i < inodesPerBlock; i++) {
-		file->vdi_read(&buf[i], sizeof(buf[i]));
-		file->vdi_lseek(sizeof(buf[i]), SEEK_CUR);
-	}
-} */
-
 ext2_inode blockClass::fetchInode(int i) {
 	ext2_inode tmp;
 	i--;
@@ -751,25 +605,10 @@ ext2_inode blockClass::fetchInode(int i) {
 	fetchBlock(b,buf);
 	block = (ext2_inode*)buf;
 	tmp = block[i];
-	cout << "fetchInode i_size at index " << i << " is " << block[i].i_size << endl;
+	//cout << "fetchInode i_size at index " << i << " is " << block[i].i_size << endl;
 	delete[] buf;
 	return tmp;
 }
-
-/*ext2_inode blockClass::fetchInode(int i) {
-	i--;
-	int g = (i/file->superBlock.s_inodes_per_group);
-	i = (i % file->superBlock.s_inodes_per_group);
-	int s = (file->blockGroupDescriptorTable[g].bg_inode_table);
-	int b = s + (i/inodesPerBlock);
-	i = i % inodesPerBlock;
-	ext2_inode* block = new ext2_inode[inodesPerBlock];
-	fetchBlock(b, block);
-	cout << endl << "inode's size at inode: " << block[i].i_size << endl;
-    //cout << "indoe blocks: " << block[i].i_blocks << endl;
-    cout << "inode links: " << block[i].i_links_count << endl;
-	return block[i];
-}*/
 
 void blockClass::printBlock() {
 	cout << "Signature: " << hex << file->MBR.magic << dec << endl;
@@ -860,12 +699,12 @@ void blockClass::fetchBBM(unsigned char* insteadBuffer) {
 			}
 		}
 	}
-	int booBerry = 0; 
+	int countBBM = 0; 
 	for(int i = 0; i < (file->superBlock.s_blocks_per_group/8)*8*numBlockGroups; i++) {
 		if((int)insteadBuffer[i] == 0)
-			booBerry++;
+			countBBM++;
 	}
-	cout << endl << endl << endl << endl << "Number of free blocks: 21487 = " << booBerry << endl;
+	cout << endl << endl << endl << endl << "Number of free blocks: 21487 = " << countBBM << endl;
 }
 
 void directory::fetchBlockFromFile(int b, int *i_block, unsigned char *dest) {
@@ -886,31 +725,32 @@ void directory::fetchBlockFromFile(int b, int *i_block, unsigned char *dest) {
 		goto dub;
 	}
 	else {
-		nzBlkBit[i_block[14]-1] += (unsigned char)1;
+		//nzBlkBit[i_block[14]-1] += (unsigned char)1;
 		bClass->fetchBlock(i_block[14], (unsigned char*)list);
 		b -= 12 + bClass->getAPB()*(1+bClass->getAPB()); 
 	}
 	dub: {
-		nzBlkBit[list[b/bClass->getAPB()/bClass->getAPB()]-1] += (unsigned char)1;
+		//nzBlkBit[list[b/bClass->getAPB()/bClass->getAPB()]-1] += (unsigned char)1;
 		bClass->fetchBlock(list[b/bClass->getAPB()/bClass->getAPB()], temp);
 		list = (int*)temp;
 		b %= bClass->getAPB()*bClass->getAPB();
 	}
 	single: {
-		nzBlkBit[list[b/bClass->getAPB()]-1] += (unsigned char)1;
+		//nzBlkBit[list[b/bClass->getAPB()]-1] += (unsigned char)1;
 		bClass->fetchBlock(list[b/bClass->getAPB()],temp);
 		list = (int*)temp;
 		b %= bClass->getAPB();
 	}
 	direct: {
-		nzBlkBit[list[b]-1] += (unsigned char)1;
+		//nzBlkBit[list[b]-1] += (unsigned char)1;
 		bClass -> fetchBlock(list[b], dest);
-		delete[] temp;
 	}
 }
 
 void directory::obtainInodeBlockNums(int b, int inIndex) {
-	int* i_block = bClass->fetchInode(inIndex).i_block;
+	ext2_inode tempInode;
+	tempInode = bClass->fetchInode(inIndex);
+	int* i_block = tempInode.i_block;
 	int *list = new int[bClass->getAPB()]; 
 	unsigned char* temp = new unsigned char[bClass->getBlockSize()];
 	if(b < 12) {
@@ -929,70 +769,41 @@ void directory::obtainInodeBlockNums(int b, int inIndex) {
 	}
 	else {
 		bClass->fetchBlock(i_block[14], (unsigned char*)list);
-		nzBlkBit[i_block[14]-1] += (unsigned char)1;
+		if(i_block[14] != 0) {	
+			nzBlkBit[i_block[14]-1] = (unsigned char)1;		
+			cout <<" b: " << b << ", ";
+			cout << "triple: " << i_block[14]-1 << endl;
+		}
 		b -= 12 + bClass->getAPB()*(1+bClass->getAPB()); 
 	}
 	dub: {
 		bClass->fetchBlock(list[b/bClass->getAPB()/bClass->getAPB()], temp);
-		nzBlkBit[list[b/bClass->getAPB()/bClass->getAPB()]-1] += (unsigned char)1;
+		if(list[b/bClass->getAPB()/bClass->getAPB()] != 0) {
+			nzBlkBit[list[b/bClass->getAPB()/bClass->getAPB()]-1] = (unsigned char)1;
+			cout <<" b: " << b << ", ";
+			cout << "double: " << list[b/bClass->getAPB()/bClass->getAPB()]-1 << endl;
+		}
 		list = (int*)temp;
 		b %= bClass->getAPB()*bClass->getAPB();
 	}
 	single: {
 		bClass->fetchBlock(list[b/bClass->getAPB()],temp);
-		nzBlkBit[list[b/bClass->getAPB()]-1] += (unsigned char)1;
+		if(list[b/bClass->getAPB()] != 0) {
+			nzBlkBit[list[b/bClass->getAPB()]-1] = (unsigned char)1;
+			cout <<" b: " << b << ", ";
+			cout << "single: " << list[b/bClass->getAPB()]-1 << endl;
+		}
 		list = (int*)temp;
 		b %= bClass->getAPB();
 	}
 	direct: {
-		nzBlkBit[list[b]-1] += (unsigned char)1;
-		delete[] temp;
-		delete[] list;
-	}
-		//bClass -> fetchBlock(list[b], dest);
-}
-
-/* unsigned char* directory::fetchBlockFromInode(int blkNum, ext2_inode node) {  // DIRECT SHOULD BE fetchBlock(list[b], dest);
-	unsigned char* tempBuf = new unsigned char[bClass->getBlockSize()];
-	if( blkNum < 12)	
-		bClass->fetchBlock(node.i_block[blkNum], tempBuf);
-	else if(12 <= blkNum && blkNum < 12+((bClass->getBlockSize())/4)) {
-		bClass->fetchBlock(node.i_block[12], tempBuf);
-		int* nums[bClass->getBlockSize()/4];
-		*nums = (int*)node.i_block[12];
-		cout << "nums: " <<endl;
-		for(int i = 0; i < bClass->getBlockSize()/4; i++) {
-			cout << i << ": " << nums[i] << endl;
-		} 
-		//unsigned char* tempBuf_2 = new unsigned char[bClass->getBlockSize()];
-		//tempBuf_2 = fetchBlock(nums[
-		
-		
-		
-		//for(int i = 0; i < bClass->getBlockSize()/4; i++) {
-		//	if(nums[i] == blkNum)
-		//}
-		
-	}
-	else if((bClass->getBlockSize()/4) <= blkNum  && blkNum < (bClass->getBlockSize()/4)*(bClass->getBlockSize()/4)) {
-		bClass->fetchBlock(node.i_block[13], tempBuf);
-		unsigned int* nums[bClass->getBlockSize()/4];
-		*nums = (unsigned int*)node.i_block[13];
-		for(int i = 0; i < bClass->getBlockSize(); i++) {
-			unsigned char* tempBuf_2 = new unsigned char[bClass->getBlockSize()];
-			bClass->fetchBlock(*nums[i], tempBuf_2);
-			 
+		if(list[b] != 0) {	
+			nzBlkBit[list[b]-1] += (unsigned char)1;
+			cout <<" b: " << b << ", ";
+			cout << "direct: " << list[b]-1 << endl;
 		}
-	} 
-	return tempBuf;
-	
-	// if < 12 use direct block
-	// else if between (12, 12+(blockSize/4)) access indirect block
-	// between  (12+(blockSize/4), 12+(blockSize/4)^2) is number of entries in double indirect block
-	// <= (blockSize/4)^2
-	// fetchblock for indirect w/array of ints x-12 for the xth block
-	// fetch 
-}*/
+	}
+}
 
 int directory::getCursor() {
 	return dirCursor;
@@ -1087,11 +898,9 @@ void traverseDirectory(int inodeNum, vdiFile* file, blockClass* bClass) {
 			nzInBit[inodeNum-1] = (unsigned char)1;
 			if(fileType == 2) 
 				traverseDirectory(inodeNum, file, bClass);
-			/*else if(fileType == 1) {
-				for(int p = 0; p < 12; p++) {
-					d.obtainInodeBlockNums(i,inodeNum);
-				}
-			}*/
+			else if(fileType == 1) {
+				// possibly attempt to get blocks for block bitmap
+			}
 		}
 	}
 	d.closeDir();
