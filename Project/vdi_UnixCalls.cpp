@@ -157,8 +157,10 @@ class blockClass
         void calculateFiles(vdiFile*);
         int getFreeSpace();
         int getUsedSpace();
+        int getAddressesPerBlock();
         void displayFileInformation(vdiFile*);
         int getBlockSize();
+        int getInodesPerBlock();
 };
 
 class directoryClass {
@@ -172,7 +174,7 @@ class directoryClass {
 	
 	public:
                 directoryClass(vdiFile*, blockClass*);
-		unsigned char* fetchBlockFromInode(int, ext2_inode);
+		void fetchBlockFromInode(int, int*, u8*);
 		void openDir(int);
 		int readDir(int&, char*);
 		void closeDir(void);
@@ -598,6 +600,16 @@ int blockClass::getUsedSpace()
     return usedSpace;
 }
 
+int blockClass::getAddressesPerBlock()
+{
+    return addressesPerBlock;
+}
+
+int blockClass::getInodesPerBlock()
+{
+    return inodesPerBlock;
+}
+
 void blockClass::displayFileInformation(vdiFile* file)
 {
     cout << "MBR Signature: " << hex << file->MBR.magic << dec << endl;
@@ -676,38 +688,71 @@ int blockClass::getBlockSize()
     return blockSize;
 }
 
-u8* directoryClass::fetchBlockFromInode(int blkNum, ext2_inode node) 
+void directoryClass::fetchBlockFromInode(int blkNum, int* i_block, u8* dest) 
 {
-	u8* buf2 = new u8[bClass->getBlockSize()];
-        bClass->fetchBlock(node.i_block[blkNum], file, buf2);
-	return buf2; // needs fixed later
+        int* list;
+        u8* temp;
+        if (blkNum < 12)
+        {
+            list = i_block;
+            cout << "L I S T: " << list[blkNum] << "  b = "<< blkNum << endl; 
+            goto direct;
+        }
+        else if (blkNum < 12+bClass->getAddressesPerBlock())
+        {
+           
+            list = i_block+12;
+            blkNum -= 12;
+            goto single;
+        }
+        else if (blkNum < 12+(bClass->getAddressesPerBlock()*(bClass->getAddressesPerBlock()+1) ) )
+        {
+            list = i_block+13;
+            blkNum -= 12+bClass->getInodesPerBlock();
+            goto dub;
+        }
+        else
+        {
+            bClass->fetchBlock(i_block[14], file, temp);
+            blkNum -= 12 + (bClass->getAddressesPerBlock()*(1+bClass->getAddressesPerBlock()));
+        }
+        dub:
+            bClass->fetchBlock(list[blkNum/bClass->getAddressesPerBlock()/bClass->getAddressesPerBlock()], file, temp);
+            cout << "dubleL I S T: " << list[blkNum] << "  b = "<< blkNum << endl; 
+            blkNum %= bClass->getAddressesPerBlock()*bClass->getAddressesPerBlock();
+        single:
+            bClass->fetchBlock(list[blkNum/bClass->getAddressesPerBlock()], file, temp);
+            cout << "singleL I S T: " << list[blkNum] << "  b = "<< blkNum << endl; 
+            list = (int*)temp;
+            blkNum %= bClass->getAddressesPerBlock();
+        direct:
+            bClass->fetchBlock(blkNum, file, dest);
+
+	//u8* buf2 = new u8[bClass->getBlockSize()];
+        //bClass->fetchBlock(node.i_block[blkNum], file, buf2);
+	//return buf2; // needs fixed later
 }
 	
 void directoryClass::openDir(int index) 
 {
-	cout << "index test " << index << endl;
 	foo = bClass->fetchInode(index, file);
-	cout << "tee hee " << endl;
 	buf = (u8*)malloc(foo.i_size);
-	cout << "tee hee" << endl;
-	for(int i = 0 ; i < 15; i++) {
+	for(int i = 0 ; i < 15; i++) 
+        {
 		cout << i+1 << ": " << foo.i_block[i] << endl;
 	}
 	//cout << endl << "first i_size " << foo.i_size << endl;
 	//cout << endl;
 	
 	cout << endl << "blockSize " << bClass->getBlockSize() << endl;
+        u8* destination = (u8*)malloc(foo.i_size);
+        int* iblocks = (int*)foo.i_block;
 	for(int b = 0; b < 15; b++) 
         { // run for each block
 			if(foo.i_block[b] != 0) 
                         {
-				//count++;
-				//cout << endl << "b is " << b << endl;
-				//cout << "i_block address " << foo.i_block[b] << endl;
-				for(int j = 0; j < bClass->getBlockSize(); j++) 
-                                {
-					buf[j + b*bClass->getBlockSize()] = fetchBlockFromInode(b,foo)[j]; 
-				}
+                           fetchBlockFromInode(b, iblocks, buf); 
+				//}
 			}
 	}
 	cout << endl << "i_size " << foo.i_size << endl;	
@@ -752,7 +797,7 @@ int directoryClass::readDir(int& index_number, char* name)
 			cout << (char)pDent->name[i];
 		}
 		cout << "\"" << endl;
-		if(pDent->inode != 0 && *pDent->name != '.' && *pDent->name != ('.'+'.')) 
+		/*if(pDent->inode != 0 && *pDent->name != '.' && *pDent->name != ('.'+'.')) 
                 {
 			cout << "---GOOD---" << endl;
 			for(int i = 0; i < pDent->rec_len; i++) 
@@ -761,7 +806,7 @@ int directoryClass::readDir(int& index_number, char* name)
 			}
 			name += 0;
 			cout << "---GOOD---" << endl;
-		}
+		}*/
 		cout << "old dirCursor = " << tempCursor /*-*buf*/ << endl;
 		dirCursor = tempCursor + (int)pDent->rec_len;
 		cout << "new dirCursor = " << dirCursor/*-*buf*/ << endl;
