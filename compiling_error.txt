@@ -1,0 +1,11 @@
+D:\Google Drive\Dropbox\School\OS Project\vdi_UnixCalls.cpp: In member function 'int directory::readDir(int&, char*, int&)':
+D:\Google Drive\Dropbox\School\OS Project\vdi_UnixCalls.cpp:861:22: error: 'pDent' was not declared in this scope
+   for(int i = 0; i < pDent->name_len; i++) {
+                      ^
+D:\Google Drive\Dropbox\School\OS Project\vdi_UnixCalls.cpp:864:8: error: 'pDent' was not declared in this scope
+   ft = pDent->file_type;
+        ^
+D:\Google Drive\Dropbox\School\OS Project\vdi_UnixCalls.cpp: At global scope:
+D:\Google Drive\Dropbox\School\OS Project\vdi_UnixCalls.cpp:882:1: error: expected declaration before '}' token
+ }
+ ^

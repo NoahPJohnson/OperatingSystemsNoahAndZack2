@@ -11,6 +11,8 @@
 #include <iomanip>
 #include <fstream>
 #include <cstring>
+#include <bitset>
+#include <string>
 
 using namespace std;
 
@@ -246,6 +248,8 @@ class blockClass {
         //void readBitmap(vdiFile*, char, int);
         int getFreeSpace();
         int getUsedSpace();
+        void fetchIBM(unsigned char*);
+        void fetchBBM(unsigned char*);
 };
 
 class directory {
@@ -269,10 +273,14 @@ class directory {
 		void rewindDir();
 		//void traverseDirectory(int);
 		void fetchBlockFromFile(int, int*, unsigned char*);
+		void obtainInodeBlockNums(int, int);
 		
 };
 
 void traverseDirectory(int, vdiFile*, blockClass*);
+
+unsigned char *nzInBit;
+unsigned char* nzBlkBit;
 
 int main() {
 
@@ -289,8 +297,8 @@ int main() {
     cout << endl;
     blockLayer.doInode2(12);
     */
-    directory dir(&testFile, &blockLayer);
-    dir.openDir(30481);
+    //directory dir(&testFile, &blockLayer);
+    //dir.openDir(30481);
     //int index = 11;
     //cout << "\n\n----------------------------- \n\n" << endl;
     
@@ -331,7 +339,7 @@ int main() {
     
     
     //while(inputNum < testFile.superBlock.s_inodes_count) {
-	cout << "\n\n----------------------------- \n\n";
+	//cout << "\n\n----------------------------- \n\n";
 	
 	/*while(dir.getCursor() < dir.getI_Size()) {	
 		cout << "cursor " << dir.getCursor() << endl;
@@ -363,9 +371,76 @@ int main() {
 	//char kek = ' ';
 	//int tempFT = 2;
 	
+	nzInBit = new unsigned char[testFile.superBlock.s_inodes_count];
+	for(int i = 0; i < 10; i++) {
+		nzInBit[i] = (unsigned char)1;
+	}
+	for(int i = 10; i < testFile.superBlock.s_inodes_count; i++) {
+		nzInBit[i] = (unsigned char)0;
+	}
+	
+	nzBlkBit = new unsigned char[testFile.superBlock.s_blocks_count];
+	for(int i = 0; i < testFile.superBlock.s_blocks_count; i++) {
+		nzBlkBit[i] = (unsigned char)0;
+	}
+	
 	traverseDirectory(2, &testFile, &blockLayer);
 	
-	      
+	/*cout << "Here's the inode bitmap: " << endl;
+	for(int i = 0; i < testFile.superBlock.s_inodes_count; i++) {
+		cout << (int)nzInBit[i] << " ";
+	}*/	
+	
+	cout << endl << "Number of inodes: " << testFile.superBlock.s_inodes_count << endl;
+	
+	int count = 0; 
+	for(int i = 0; i < testFile.superBlock.s_inodes_count; i++) {
+		if((int)nzInBit[i] == 1)
+			count++;
+	}
+	
+	cout << endl << "Used inodes in bitmap: " << count << endl;
+	cout << "Used inodes according to superBlock: " << 337 << endl << endl;
+	    
+	unsigned char* fsInBit = new unsigned char[testFile.superBlock.s_inodes_count]; 
+	for(int i = 0; i < 10; i++) {
+		fsInBit[i] = (unsigned char)1;
+	}
+	for(int i = 10; i < testFile.superBlock.s_inodes_count; i++) {
+		fsInBit[i] = (unsigned char)0;
+	}
+	blockLayer.fetchIBM(fsInBit);
+	
+	bool same = true;
+	for(int i = 0; i < testFile.superBlock.s_inodes_count; i++) {
+		if(nzInBit[i] != fsInBit[i])
+			same = false;
+	}
+	
+	if(same == true)
+		cout << endl << "-------------- INODE BITMAPS ARE THE SAME --------------";
+	else
+		cout << endl << "-------------- :( --------------";
+		
+	
+	unsigned char* fsBlkBit = new unsigned char[testFile.superBlock.s_blocks_count];
+	blockLayer.fetchBBM(fsBlkBit);
+	
+	int frankenBerry = 0; 
+	int dinkleburg = 0;
+	for(int i = 0; i < testFile.superBlock.s_blocks_count; i++) {
+		if((int)nzBlkBit[i] == 0) {
+			frankenBerry++;
+		}
+		if((int)nzBlkBit[i] > 1)
+			dinkleburg++;
+	}
+	
+	cout << endl << endl << "File system's number of UNUSED files: 21487 = " << frankenBerry << endl;
+	cout << "File system's amount of OVERUSED: 0 = " << dinkleburg << endl;
+	cout << "File System's USED files: 108561 = " << testFile.superBlock.s_blocks_count-frankenBerry << endl;
+		
+		
     //dir.rewindDir();
     //cout << "inputNum " << inputNum << endl;
     //cout << "cursor 2" << dir.getCursor() << endl;
@@ -431,25 +506,19 @@ int main() {
         cout << "Disk Size: " << testFile.header.diskSize << endl;
         cout << "Block Size: " << testFile.header.blockSize << endl;
         cout << "Blocks in HDD: " << testFile.header.blocksInHDD << endl;
-
         cout << "Inodes: " << testFile.superBlock.s_inodes_count << endl;
         cout << "SuperBlock: " << hex << testFile.superBlock.s_magic << dec << endl;
         cout << "First Inode: " << testFile.superBlock.s_first_ino << endl;
-
         for (unsigned int i = 0; i < sizeof(testFile.MBR.unused0); i ++)
         {
             //cout << "Code from Read: " << testFile.MBR.unused0[i] << endl;
         }
-
-
         for (int i = 0; i < 4; i ++)
         {
             cout << "Partition Table Type: " << testFile.MBR.partitionTable[i].type << endl;
             cout << "Partition Table: " << testFile.MBR.partitionTable[i].firstSector << endl;
         }
-
 		blockLayer.printBlock(&testFile);
-
         //cout << endl;
         //cout << "First inode: " << testFile.superBlock.s_first_ino << endl;
         */
@@ -677,7 +746,7 @@ ext2_inode blockClass::fetchInode(int i) {
 	int s = (file->blockGroupDescriptorTable[g].bg_inode_table);
 	int b = s + (i/inodesPerBlock);
 	i = i % inodesPerBlock;
-	//ext2_inode* block = new ext2_inode[inodesPerBlock];
+	ext2_inode* block = new ext2_inode[inodesPerBlock];
 	unsigned char* buf = new unsigned char[blockSize];
 	fetchBlock(b,buf);
 	block = (ext2_inode*)buf;
@@ -730,57 +799,122 @@ int blockClass::getUsedSpace() {
     return usedSpace;
 }
 
-/*void blockClass::readBitmap(vdiFile* file, char str, int index) {
+void blockClass::fetchIBM(unsigned char* insteadBuffer) {
+	//unsigned char* tempBM = new unsigned char[file->superBlock.s_inodes_count];
+	/*unsigned char* tempStuff = new unsigned char[blockSize];
+	fetchBlock(260,tempStuff);
+	int a = 5;
+	cout << "should be 101 " << bitset<3>(a) << endl;
+	cout << "Should be 11111111: " << bitset<8>(tempStuff[0]) << endl;
+	cout << "Should be 1111----: " << bitset<8>(tempStuff[1]) << endl;
+	cout << "Should be 00000000: " << bitset<8>(tempStuff[blockSize-1]) << endl;*/
 	
-	//file->vdi_lseek((b*blockSize)+partitionStart, SEEK_SET);
-	int loc;
-	if(str == 'b') {
-		loc = file->blockGroupDescriptorTable[index-1].bg_block_bitmap;
-	}
-	if(str == 'i') {
-		loc = file->blockGroupDescriptorTable[index-1].bg_inode_bitmap;
-	}
-	if(str == 't') {
-		loc = file->blockGroupDescriptorTable[index-1].bg_inode_bitmap;
-	}
 	
-	unsigned char *bitmap; 
-	bitmap = (unsigned char *)malloc(blockSize);	
-	cout << endl << "size of BGDT: " << sizeof(file->blockGroupDescriptorTable[index-1]) << endl;
-	cout << endl << "loc: " << loc << endl;
-	file->vdi_lseek(partitionStart + ((loc-1)*blockSize), SEEK_SET);
-	file->vdi_read(bitmap, blockSize);
-	for(int i = 0; i < blockSize; i++) {
-		printf("%u ",bitmap[i]);
-	}
 	
-	unsigned char *bitmap2; 
-	bitmap2 = new unsigned char[blockSize];
-	for(int i = 0; i < blockSize; i++) {
-		file->vdi_read(&bitmap, sizeof(bitmap[i]));
-		file->vdi_lseek(sizeof(bitmap[i]), SEEK_CUR);
-	}
-	file->vdi_lseek(partitionStart + ((loc-1)*blockSize), SEEK_SET);
-	file->vdi_read(bitmap2, blockSize);
-	for(int i = 0; i < blockSize; i++) {
-		printf("%u ",bitmap2[i]);
-	}
-	
-	bool same = true;
-	for(int i = 0; i < blockSize; i++) {
-		if(bitmap[i] != bitmap2[i])
-			same = false;
+	//int b = file->blockGroupDescriptorTable[0].bg_inode_bitmap;
+	unsigned char* bitmapBlock = new unsigned char[blockSize];
+	//fetchBlock(b, bitmapBlock);	
+	string tempString;
+	unsigned char tempByte;
+	int b;
+	//b = b = file->blockGroupDescriptorTable[0].bg_inode_bitmap;
+	//fetchBlock(b, bitmapBlock);
+	for(int m = 0; m < numBlockGroups; m++) {
+		b = file->blockGroupDescriptorTable[m].bg_inode_bitmap;
+		//cout << "b = " << b << endl; //group 0 --> b = 260
+		fetchBlock(b, bitmapBlock); // bitmapBlock = block 260
+		for(int i = 0; i < file->superBlock.s_inodes_per_group/8; i++) { // looking at block i
+			tempByte = bitmapBlock[i];
+			tempString = bitset<8>(tempByte).to_string();
+				//cout << endl;
+			for(int j = 7; j >= 0; j--) {
+				insteadBuffer[m*(file->superBlock.s_inodes_per_group/8)*8 + (i*8)+(7-j)] = ((unsigned char)tempString.at(j)-48);
+				//cout << i*sizeof(unsigned char) << " ";
+				//cout << (i*sizeof(unsigned char))+(7-j) << " "; //<< ": " <<(int)insteadBuffer[(i*sizeof(unsigned char))+(7-j)] << "  |  ";
+				//cout << tempString.at(j)-48 << " ";
+			}
+		}
 	}
 	
-	//cout << endl << end << same;
-}*/
+	int booBerry = 0; 
+	for(int i = 0; i < (file->superBlock.s_inodes_per_group/8)*8*numBlockGroups; i++) {
+		if((int)insteadBuffer[i] == 0)
+			booBerry++;
+	}
+	cout << "Number of free inodes: 32175 = " << booBerry << endl;
+}
+
+void blockClass::fetchBBM(unsigned char* insteadBuffer) {
+	unsigned char* bitmapBlock = new unsigned char[blockSize];	
+	string tempString;
+	unsigned char tempByte;
+	int b;
+	for(int m = 0; m < numBlockGroups; m++) {
+		b = file->blockGroupDescriptorTable[m].bg_block_bitmap;
+		fetchBlock(b, bitmapBlock); 
+		for(int i = 0; i < file->superBlock.s_blocks_per_group/8; i++) {
+			tempByte = bitmapBlock[i];
+			tempString = bitset<8>(tempByte).to_string();
+			for(int j = 7; j >= 0; j--) {
+				insteadBuffer[m*(file->superBlock.s_blocks_per_group/8)*8 + (i*8)+(7-j)] = ((unsigned char)tempString.at(j)-48);
+			}
+		}
+	}
+	int booBerry = 0; 
+	for(int i = 0; i < (file->superBlock.s_blocks_per_group/8)*8*numBlockGroups; i++) {
+		if((int)insteadBuffer[i] == 0)
+			booBerry++;
+	}
+	cout << endl << endl << endl << endl << "Number of free blocks: 21487 = " << booBerry << endl;
+}
 
 void directory::fetchBlockFromFile(int b, int *i_block, unsigned char *dest) {
 	int *list = new int[bClass->getAPB()]; 
 	unsigned char* temp = new unsigned char[bClass->getBlockSize()];
 	if(b < 12) {
 		list = i_block;
-		//cout << "did first block at " << b << endl;
+		goto direct;
+	}
+	else if(b < 12 + bClass->getAPB()) {
+		list = i_block+12;
+		b -= 12; 
+		goto single;
+	}
+	else if(b < 12 + (bClass->getAPB()*(1+bClass->getAPB()))) {
+		list = i_block + 13;
+		b -= 12 + bClass->getAPB();
+		goto dub;
+	}
+	else {
+		nzBlkBit[i_block[14]-1] += (unsigned char)1;
+		bClass->fetchBlock(i_block[14], (unsigned char*)list);
+		b -= 12 + bClass->getAPB()*(1+bClass->getAPB()); 
+	}
+	dub: {
+		nzBlkBit[list[b/bClass->getAPB()/bClass->getAPB()]-1] += (unsigned char)1;
+		bClass->fetchBlock(list[b/bClass->getAPB()/bClass->getAPB()], temp);
+		list = (int*)temp;
+		b %= bClass->getAPB()*bClass->getAPB();
+	}
+	single: {
+		nzBlkBit[list[b/bClass->getAPB()]-1] += (unsigned char)1;
+		bClass->fetchBlock(list[b/bClass->getAPB()],temp);
+		list = (int*)temp;
+		b %= bClass->getAPB();
+	}
+	direct: {
+		nzBlkBit[list[b]-1] += (unsigned char)1;
+		bClass -> fetchBlock(list[b], dest);
+		delete[] temp;
+	}
+}
+
+void directory::obtainInodeBlockNums(int b, int inIndex) {
+	int* i_block = bClass->fetchInode(inIndex).i_block;
+	int *list = new int[bClass->getAPB()]; 
+	unsigned char* temp = new unsigned char[bClass->getBlockSize()];
+	if(b < 12) {
+		list = i_block;
 		goto direct;
 	}
 	else if(b < 12 + bClass->getAPB()) {
@@ -795,19 +929,27 @@ void directory::fetchBlockFromFile(int b, int *i_block, unsigned char *dest) {
 	}
 	else {
 		bClass->fetchBlock(i_block[14], (unsigned char*)list);
+		nzBlkBit[i_block[14]-1] += (unsigned char)1;
 		b -= 12 + bClass->getAPB()*(1+bClass->getAPB()); 
 	}
-	dub: 
+	dub: {
 		bClass->fetchBlock(list[b/bClass->getAPB()/bClass->getAPB()], temp);
+		nzBlkBit[list[b/bClass->getAPB()/bClass->getAPB()]-1] += (unsigned char)1;
 		list = (int*)temp;
 		b %= bClass->getAPB()*bClass->getAPB();
-	single:
+	}
+	single: {
 		bClass->fetchBlock(list[b/bClass->getAPB()],temp);
+		nzBlkBit[list[b/bClass->getAPB()]-1] += (unsigned char)1;
 		list = (int*)temp;
 		b %= bClass->getAPB();
-	direct:
-		//cout << "looking at block " << b << endl;
-		bClass -> fetchBlock(list[b], dest);
+	}
+	direct: {
+		nzBlkBit[list[b]-1] += (unsigned char)1;
+		delete[] temp;
+		delete[] list;
+	}
+		//bClass -> fetchBlock(list[b], dest);
 }
 
 /* unsigned char* directory::fetchBlockFromInode(int blkNum, ext2_inode node) {  // DIRECT SHOULD BE fetchBlock(list[b], dest);
@@ -888,14 +1030,6 @@ void directory::openDir(int index) {
 	dirCursor = 0;	 
 }
 
-/*bool isDD(char* inName) {
-	bool ret = true;
-	if(inName[0] != '.' || inName[1] != '.')
-		ret = false;
-	return ret;
-}
-*/
-
 int directory::readDir(int &index_number, char* name, int &ft) {
 	if(dirCursor == foo.i_size) {
 		return 0;
@@ -928,6 +1062,7 @@ int directory::readDir(int &index_number, char* name, int &ft) {
 			index_number = (int)pDent->inode;
 			cout << "new index = " << index_number << endl;
 			cout << "\n\n----------------------------- \n\n";
+			//cout << 2 << " " << endl;
 		}
 		return 1;
 	}	
@@ -948,8 +1083,15 @@ void traverseDirectory(int inodeNum, vdiFile* file, blockClass* bClass) {
 	char tempName[256];
 	d.openDir(inodeNum);
 	while(d.readDir(inodeNum, tempName, fileType) == 1) {
-		if(inodeNum != 0 && strcmp(tempName,".") && strcmp(tempName,"..") && fileType == 2) {
-			traverseDirectory(inodeNum, file, bClass);
+		if(inodeNum != 0 && strcmp(tempName,".") && strcmp(tempName,"..")) {
+			nzInBit[inodeNum-1] = (unsigned char)1;
+			if(fileType == 2) 
+				traverseDirectory(inodeNum, file, bClass);
+			/*else if(fileType == 1) {
+				for(int p = 0; p < 12; p++) {
+					d.obtainInodeBlockNums(i,inodeNum);
+				}
+			}*/
 		}
 	}
 	d.closeDir();
