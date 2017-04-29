@@ -281,10 +281,20 @@ class directory {
 		
 };
 
+bool touched30481 = false;
+
 void setBit(int b, unsigned char* inputMap) {
 	int i = b/8;
 	int j = b%8;
+	//if(touched30481 == true)	
+	//	cout << "inputMap[i]: " << bitset<8>((int)inputMap[i]).to_string() << endl;
 	inputMap[i] |= (1<<j);
+	//if(touched30481 == true) {
+	//	cout << "b: " << b << endl;
+	//	cout << "i: " << i << endl;
+	//	cout << "j: " << j << endl;
+	//	cout << "inputMap[i]: " << bitset<8>((int)inputMap[i]).to_string() << endl;
+	//}	
 }
 
 int countSetBits(unsigned char inputByte) {
@@ -305,6 +315,7 @@ int hIBCount = 0;
 int cIBCount = 0;
 int hBBCount = 0;
 int cBBCount = 0;
+vector <int> stuff;
 
 int main() {
 
@@ -367,7 +378,7 @@ int main() {
 		outsideDir.obtainInodeBlockNums(outsideInode.i_size, outsideInode.i_block);
 		outsideInode = blockLayer.fetchInode(7);
 		outsideDir.obtainInodeBlockNums(outsideInode.i_size, outsideInode.i_block);
-		outsideInode = blockLayer.fetchInode(123128);
+		outsideInode = blockLayer.fetchInode(30480);
 		outsideDir.obtainInodeBlockNums(outsideInode.i_size, outsideInode.i_block);
 
 	
@@ -412,8 +423,9 @@ int main() {
 			string tempCB = bitset<8>(cBB[i]).to_string();
 			string tempHB = bitset<8>(hBB[i]).to_string();
 		for(int j = 0; j < 8; j++) {	
-			if(tempCB.at(j) == '1' && tempHB.at(j) == '0') { //(tempCB.at(j) == '1' && tempHB.at(j) == '0')) {
-				cout << i << ", " << j << endl;
+			if(tempCB.at(7-j) == '1' && tempHB.at(7-j) == '0') { //(tempCB.at(j) == '1' && tempHB.at(j) == '0')) {
+				//cout << i << ", " << j << " | ";
+				//cout << (i*8)+j+1 << "   |   ";
 				wrongCount1++;
 			}
 			else if(tempCB.at(j) == '0' && tempHB.at(j) == '1') {
@@ -426,12 +438,29 @@ int main() {
 			//string comDiff = bitset<8>(cBB[i]).to_string();
 			//cout << "cBB had: " << comDiff << endl << endl << endl;
 		//}
-	}	
-	cout << endl << endl << "Listed differences: " << wrongCount1 - wrongCount2 << endl;
+	}
+	
+	//cout << endl << endl << "hBB: " << bitset<8>(hBB[130040/8]).to_string() << endl << endl;
+	//cout << endl << endl << "cBB: " << bitset<8>(cBB[130040/8]).to_string() << endl << endl;
+		
+	cout << endl << endl << "Listed differences: " << wrongCount1 << endl;
 	//cout << "Listed differences2: " << wrongCount2 << endl;
 	cout << "Numerical difference: " << hBBCount - cBBCount << endl;
 	
-	cout << endl << bitset<8>((int)cBB[15390/8]).to_string() << endl;
+	for(int i = 0; i < testFile.superBlock.s_blocks_count/8; i++) {
+		if(hBB[i] != cBB[i]) {
+			cout << endl << endl << "----------- BYTE " << i << " -----------" << endl;
+			cout << "hBB: " << bitset<8>(hBB[i]).to_string() << endl;
+			cout << "cBB: " << bitset<8>(cBB[i]).to_string() << endl;
+		}
+	}
+	
+	for(int i = 0; i < (int)stuff.size(); i++) {
+		cout << stuff.at(i) << ",  ";
+	}
+	cout << stuff.size() << endl;
+	
+	//cout << endl << bitset<8>((int)cBB[15390/8]).to_string() << endl;
 	/*unsigned char test1 = (int)14;
 	string test2 = bitset<8> (test1).to_string();
 	cout << endl << endl << test2 << endl << endl;
@@ -548,6 +577,7 @@ int main() {
 	//cout << endl;
 	//cout << "First inode: " << testFile.superBlock.s_first_ino << endl;
 	*/
+        
         return 0;
 }
 
@@ -858,12 +888,6 @@ bool bitIsSet(int b, unsigned char* inputMap) {
 }*/
 
 void blockClass::newFIB(unsigned char* buf) {
-	//for(int i = 0; i < file->superBlock.s_inodes_per_group/8; i++) {
-	//	buf[i] = (unsigned char)0;
-	//}
-	//int setBitCount = 0;
-	//int freeInodeCount = 0;
-	//int iPBG = file->superBlock.s_inodes_per_group;
 	unsigned char* map = new unsigned char[file->superBlock.s_inodes_per_group/8];
 	int b;
 	for(int m = 0; m < numBlockGroups; m++) {
@@ -871,25 +895,8 @@ void blockClass::newFIB(unsigned char* buf) {
 		fetchBlock(b, map);
 		for(int i = 0; i < file->superBlock.s_inodes_per_group/8; i++) {
 			buf[(m*(file->superBlock.s_inodes_per_group/8))+i] = map[i];
-			//cIBCount += countSetBits(buf[i]);
-			/*if(bitIsSet((m*iPBG)+i, map)) {
-				setBit((m*iPBG)+i, buf);
-				setBitCount++;
-			}
-			else {
-				freeInodeCount++;
-			}*/
 		}
-		/*cout << endl << endl;
-		for(int i = 0; i < iPBG/8; i++) {
-			cout << (int)buf[(m*iPBG)+i] << " ";
-		}*/	
 	}
-	//cout << endl << endl << "Number of set bits: " << setBitCount << endl;
-	//cout << "Number of free inodes: " << freeInodeCount << endl;
-	
-	//cout << iPBG;	
-	//delete[] map;
 }
 
 void blockClass::newFBB(unsigned char* buf) {
@@ -900,25 +907,9 @@ void blockClass::newFBB(unsigned char* buf) {
 		fetchBlock(b, map);
 		for(int i = 0; i < file->superBlock.s_blocks_per_group/8; i++) {
 			buf[(m*(file->superBlock.s_blocks_per_group/8))+i] = map[i];
-			//cIBCount += countSetBits(buf[i]);
-			/*if(bitIsSet((m*iPBG)+i, map)) {
-				setBit((m*iPBG)+i, buf);
-				setBitCount++;
-			}
-			else {
-				freeInodeCount++;
-			}*/
 		}
-		/*cout << endl << endl;
-		for(int i = 0; i < iPBG/8; i++) {
-			cout << (int)buf[(m*iPBG)+i] << " ";
-		}*/	
 	}
-	//cout << endl << endl << "Number of set bits: " << setBitCount << endl;
-	//cout << "Number of free inodes: " << freeInodeCount << endl;
-	
-	//cout << iPBG;	
-	//delete[] map;
+
 }
 	
 	/*for(int i = 7; i >= 0; i--) {
@@ -1012,11 +1003,11 @@ void directory::fetchBlockFromFile(int b, int *i_block, unsigned char *dest) {
 void directory::obtainInodeBlockNums(int iSize, int* i_block) {
 	unsigned char* temp = new unsigned char[bClass->getBlockSize()];
 	int b;
+	int *list;
 	for(int r = 0; r * bClass->getBlockSize() < iSize; r++) {	
 		b = r;
-		int *list;// = new int[bClass->getAPB()]; 
 		if(b < 12) {
-			list = i_block;
+			list = i_block;			
 			goto direct;
 		}
 		else if(b < 12 + bClass->getAPB()) {
@@ -1030,31 +1021,23 @@ void directory::obtainInodeBlockNums(int iSize, int* i_block) {
 			goto dub;
 		}
 		else {
-			bClass->fetchBlock(i_block[14], (unsigned char*)list);
-			//nzBlkBit[i_block[14]-1] = (unsigned char)1;		
+			bClass->fetchBlock(i_block[14], (unsigned char*)list);	
 			setBit(i_block[14]-1, hBB);
-			//cout << "* ";
 			b -= 12 + bClass->getAPB()*(1+bClass->getAPB()); 
 		}
 		dub: {
 			bClass->fetchBlock(list[b/bClass->getAPB()/bClass->getAPB()], temp);
-			//nzBlkBit[list[b/bClass->getAPB()/bClass->getAPB()]-1] = (unsigned char)1;
 			setBit(list[b/bClass->getAPB()/bClass->getAPB()]-1,hBB);
-			//cout << "* ";
 			list = (int*)temp;
 			b %= bClass->getAPB()*bClass->getAPB();
 		}
 		single: {
 			bClass->fetchBlock(list[b/bClass->getAPB()],temp);
-			//nzBlkBit[list[b/bClass->getAPB()]-1] = (unsigned char)1;
 			setBit(list[b/bClass->getAPB()]-1, hBB);
-			//cout << "* ";
 			list = (int*)temp;
 			b %= bClass->getAPB();
 		}
 		direct: {	
-			//nzBlkBit[list[b]-1] +=(unsigned char)1;
-			//cout << "* ";
 			setBit(list[b]-1, hBB);
 		}
 	}
@@ -1079,9 +1062,9 @@ void directory::openDir(int index) {
 	buf = (unsigned char*)malloc(foo.i_size);
 	//int est = ((foo.i_size+bClass->getBlockSize()-1)/bClass->getBlockSize());
 	//cout << "estimated number of blocks: " << est << endl << endl;
-	/*for(int i = 0 ; i < 15; i++) {
+	for(int i = 0 ; i < 15; i++) {
 		cout << i << ": " << foo.i_block[i] << endl;
-	}*/
+	}
 	
 	for(int b = 0; b * bClass->getBlockSize() < foo.i_size; b++) { // run for each block
 			if(foo.i_block[b] != 0) {
@@ -1150,14 +1133,8 @@ void traverseDirectory(int inodeNum, vdiFile* file, blockClass* bClass) {
 	d.openDir(inodeNum);
 	while(d.readDir(inodeNum, tempName, fileType) == 1) {		
 		if(inodeNum != 0 && strcmp(tempName,".") && strcmp(tempName,"..")) {
-			/*ext2_inode inodeTemp = bClass->fetchInode(7);
-			d.obtainInodeBlockNums(7, inodeTemp.i_size, inodeTemp.i_block);
-			hIBCount++;
-			nzInBit[inodeNum-1] = (unsigned char)1;*/
 			setBit(inodeNum-1, hIB);
-			//hIBCount++;
 			ext2_inode tempInode = bClass->fetchInode(inodeNum);
-			//for(int i = 0; i * bClass->getBlockSize() < tempInode.i_size; i++) 
 			d.obtainInodeBlockNums(tempInode.i_size, tempInode.i_block);
 			if(fileType == 2) 
 				traverseDirectory(inodeNum, file, bClass);
